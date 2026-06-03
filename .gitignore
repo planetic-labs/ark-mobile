@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+metro-cache/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+ios/main.jsbundle
+
+# Environment variables and secrets
+.env
+.env.local
+.env.preview
+.env.*.local
+
+# Android
+*.apk
+*.aab
+*.keystore
+
+# iOS
+*.ipa
+
+# System files
+.DS_Store
+.DS_Store?
+._*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
