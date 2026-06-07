@@ -25,9 +25,12 @@ else
     exit 1
 fi
 
+# Подтягиваем последние теги с сервера, чтобы знать о занятых версиях
+echo "Проверяем существующие теги на GitHub..."
+git fetch --tags origin &>/dev/null
+
 # Проверка, нет ли уже такого тега локально или удаленно
-if git rev-parse "$TAG" >/dev/null 2>&1; then
-    # Если тег на эту дату уже есть, добавим порядковый номер внутри дня
+if git rev-parse "$TAG" >/dev/null 2>&1 || git ls-remote --tags origin | grep -q "refs/tags/$TAG$"; then
     echo "Тег $TAG уже существует. Генерируем уникальный суффикс..."
     COUNT=1
     while true; do
@@ -37,7 +40,7 @@ if git rev-parse "$TAG" >/dev/null 2>&1; then
             NEW_TAG="v${DATE}.${COUNT}"
         fi
         
-        if ! git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
+        if ! git rev-parse "$NEW_TAG" >/dev/null 2>&1 && ! git ls-remote --tags origin | grep -q "refs/tags/$NEW_TAG$"; then
             TAG="$NEW_TAG"
             TITLE="Release ${TAG}"
             break
