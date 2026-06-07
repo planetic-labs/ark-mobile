@@ -1,0 +1,81 @@
+name: EAS Update on Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update:
+    name: Publish EAS Update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Determine environment and version
+        id: env-setup
+        run: |
+          TAG_NAME="${{ github.event.release.tag_name }}"
+          echo "Tag: $TAG_NAME"
+          
+          CLEAN_VERSION=$(echo "$TAG_NAME" | sed 's/^v//')
+          
+          if [[ "$CLEAN_VERSION" == *"-preview" ]]; then
+            VERSION_NAME=$(echo "$CLEAN_VERSION" | sed 's/-preview//')
+            BRANCH="preview"
+            APP_ENV="preview"
+          else
+            VERSION_NAME="$CLEAN_VERSION"
+            BRANCH="production"
+            APP_ENV="production"
+          fi
+          
+          echo "Version name: $VERSION_NAME"
+          echo "Branch: $BRANCH"
+          echo "APP_ENV: $APP_ENV"
+          
+          node -e "const fs = require('fs'); const pkg = require('./package.json'); pkg.version = '$VERSION_NAME'; fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));"
+          
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          echo "APP_ENV=$APP_ENV" >> $GITHUB_ENV
+
+      - name: Generate AI Changelog via Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node .github/scripts/generate-changelog.js
+
+      - name: Update GitHub Release Body
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SUMMARY=$(cat changelog-summary.txt)
+          gh release edit ${{ github.event.release.tag_name }} --notes "$SUMMARY"
+
+      - name: Publish EAS Update
+        env:
+          APP_ENV: ${{ env.APP_ENV }}
+        run: |
+          SUMMARY=$(cat changelog-summary.txt)
+          npx eas-cli update --branch ${{ env.BRANCH }} --message "$SUMMARY"
