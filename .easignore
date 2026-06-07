@@ -16,7 +16,6 @@ ios/main.jsbundle
 .env.local
 .env.preview
 .env.*.local
-google-services.json
 
 # Android
 *.apk
@@ -46,6 +45,8 @@ pnpm-debug.log*
 
 # Local files
 GEMINI.md
-
 requirements.pdf
 .tmp/
+
+# Force include Firebase config for EAS Build
+!google-services.json
