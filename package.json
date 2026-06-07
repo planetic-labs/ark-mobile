@@ -15,7 +15,8 @@
     "build:preview": "node -e \"const fs = require('fs'); const pkg = require('./package.json'); const d = new Date(); pkg.version = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));\" && APP_ENV=preview npx eas-cli build --platform android --profile preview",
     "build:prod": "node -e \"const fs = require('fs'); const pkg = require('./package.json'); const d = new Date(); pkg.version = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));\" && APP_ENV=production npx eas-cli build --platform android --profile production",
     "update:preview": "APP_ENV=preview npx eas-cli update --branch preview --message \"$(git log -1 --oneline)\"",
-    "update:production": "APP_ENV=production npx eas-cli update --branch production --message \"$(git log -1 --oneline)\""
+    "update:production": "APP_ENV=production npx eas-cli update --branch production --message \"$(git log -1 --oneline)\"",
+    "release": "./release.sh"
   },
   "dependencies": {
     "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
