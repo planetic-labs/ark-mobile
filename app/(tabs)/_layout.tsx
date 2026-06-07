@@ -2,9 +2,11 @@ import { Tabs, Redirect, router } from 'expo-router';
 import { TouchableOpacity, Text, Platform, Alert, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { useEffect } from 'react';
 import { COLORS, FONTS } from '../../constants/Config';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { api } from '../../services/api';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const ChatsIcon = ({ color }: { color: string }) => (
   <Svg width={23} height={23} viewBox="0 0 23 23" fill="none">
@@ -51,6 +53,13 @@ export default function TabsLayout() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const logout = useAuthStore((state) => state.logout);
   const insets = useSafeAreaInsets();
+  const { registerForPushNotifications } = useNotifications();
+
+  useEffect(() => {
+    if (accessToken) {
+      registerForPushNotifications();
+    }
+  }, [accessToken]);
 
   if (!accessToken) {
     return <Redirect href="/(auth)/login" />;

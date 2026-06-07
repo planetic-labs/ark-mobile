@@ -7,14 +7,28 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "APP_ENV": "development",
+        "EXPO_PUBLIC_API_URL": "http://localhost:8000/api/v1"
+      }
     },
     "preview": {
-      "developmentClient": true,
+      "developmentClient": false,
       "channel": "preview",
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "preview",
+        "EXPO_PUBLIC_API_URL": "https://dev-api.yourdomain.com/api/v1"
+      }
     },
-    "production": {}
+    "production": {
+      "channel": "production",
+      "env": {
+        "APP_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://api.yourdomain.com/api/v1"
+      }
+    }
   },
   "submit": {
     "production": {}

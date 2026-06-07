@@ -110,6 +110,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(userData),
       }),
+    registerPushToken: (token: string) =>
+      request<any>('/users/me/push-token', {
+        method: 'POST',
+        body: JSON.stringify({ push_token: token }),
+      }),
   },
   messaging: {
     listChats: () => request<any[]>('/messaging/chats'),

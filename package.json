@@ -1,6 +1,6 @@
 {
   "name": "mobile",
-  "version": "2026.5.23",
+  "version": "2026.06.07",
   "main": "expo-router/entry",
   "scripts": {
     "dev": "expo start",
@@ -10,31 +10,44 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --watchAll=false",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "build:dev": "node -e \"const fs = require('fs'); const pkg = require('./package.json'); const d = new Date(); pkg.version = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));\" && APP_ENV=development npx eas-cli build --platform android --profile development",
+    "build:preview": "node -e \"const fs = require('fs'); const pkg = require('./package.json'); const d = new Date(); pkg.version = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));\" && APP_ENV=preview npx eas-cli build --platform android --profile preview",
+    "build:prod": "node -e \"const fs = require('fs'); const pkg = require('./package.json'); const d = new Date(); pkg.version = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));\" && APP_ENV=production npx eas-cli build --platform android --profile production",
+    "update:preview": "APP_ENV=preview npx eas-cli update --branch preview --message \"$(git log -1 --oneline)\"",
+    "update:production": "APP_ENV=production npx eas-cli update --branch production --message \"$(git log -1 --oneline)\""
   },
   "dependencies": {
     "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
     "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
     "@expo-google-fonts/spectral": "^0.4.1",
-    "@expo/metro-runtime": "~56.0.13",
+    "@expo/metro-runtime": "~56.0.14",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@tanstack/react-query": "^5.101.0",
     "babel-preset-expo": "~56.0.14",
-    "expo": "~56.0.8",
-    "expo-constants": "~56.0.16",
-    "expo-dev-client": "~56.0.18",
+    "expo": "~56.0.9",
+    "expo-av": "^16.0.8",
+    "expo-constants": "~56.0.17",
+    "expo-dev-client": "~56.0.19",
+    "expo-document-picker": "~56.0.4",
+    "expo-file-system": "~56.0.7",
     "expo-font": "^56.0.5",
-    "expo-image": "~56.0.9",
+    "expo-image": "~56.0.10",
+    "expo-image-picker": "~56.0.16",
     "expo-linking": "~56.0.13",
-    "expo-notifications": "~56.0.15",
-    "expo-router": "~56.2.8",
+    "expo-notifications": "~56.0.16",
+    "expo-router": "~56.2.9",
+    "expo-screen-capture": "~56.0.4",
+    "expo-sharing": "~56.0.16",
     "expo-splash-screen": "~56.0.10",
     "expo-status-bar": "~56.0.4",
-    "expo-updates": "^56.0.17",
+    "expo-updates": "^56.0.18",
+    "expo-video": "~56.1.2",
     "metro-runtime": "^0.84.4",
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-keyboard-controller": "1.21.6",
+    "react-native-mmkv": "^4.3.1",
     "react-native-reanimated": "~4.3.1",
     "react-native-safe-area-context": "5.7.0",
     "react-native-screens": "~4.25.2",
@@ -50,5 +63,15 @@
     "jest-expo": "~56.0.4",
     "typescript": "~6.0.3"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "expo-av"
+        ],
+        "listUnknownPackages": false
+      }
+    }
+  }
 }
