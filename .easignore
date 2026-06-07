@@ -50,3 +50,4 @@ requirements.pdf
 
 # Force include Firebase config for EAS Build
 !google-services.json
+release.sh
