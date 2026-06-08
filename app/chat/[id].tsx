@@ -19,6 +19,7 @@ import { useHeaderHeight } from 'expo-router/react-navigation';
 import { api } from '../../services/api';
 import { COLORS, FONTS } from '../../constants/Config';
 import { useWebSocket } from '../../hooks/useWebSocket';
+import type { Message, WebSocketNewMessageEvent } from '../../types/shared';
 
 interface UserDeco {
   name: string;
@@ -34,7 +35,7 @@ export default function ChatScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { lastMessage } = useWebSocket();
+  const { lastEvent } = useWebSocket();
   const router = useRouter();
 
   // Local interactive states to wow the user (Premium feel)
@@ -68,16 +69,19 @@ export default function ChatScreen() {
     });
   };
 
-  // Listen for real-time messages
+  // Обновление кэша сообщений при получении нового события через WebSocket
   useEffect(() => {
-    if (lastMessage?.type === 'message.new' && lastMessage.data.chat_id === id) {
-      queryClient.setQueryData(['messages', id], (oldData: any) => {
-        if (!oldData) return [lastMessage.data];
-        if (oldData.find((m: any) => m.id === lastMessage.data.id)) return oldData;
-        return [lastMessage.data, ...oldData];
-      });
-    }
-  }, [lastMessage, id]);
+    if (lastEvent?.type !== 'message.new') return;
+    const event = lastEvent as unknown as WebSocketNewMessageEvent;
+    if (event.data.chat_id !== id) return;
+
+    queryClient.setQueryData<Message[]>(['messages', id], (oldData) => {
+      if (!oldData) return [event.data];
+      // Защита от дубликатов
+      if (oldData.some((m) => m.id === event.data.id)) return oldData;
+      return [event.data, ...oldData];
+    });
+  }, [lastEvent, id, queryClient]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -257,7 +261,7 @@ export default function ChatScreen() {
     }
 
     // 3. Correction / Thread nested message view
-    const isCorrection = sender.isWarrior && index > 0 && isReportFormat(messages[index - 1]?.content || '');
+    const isCorrection = sender.isWarrior && index > 0 && isReportFormat(messages?.[index - 1]?.content ?? '');
 
     if (isCorrection) {
       return (

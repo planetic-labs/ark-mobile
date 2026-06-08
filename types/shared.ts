@@ -17,6 +17,15 @@ export interface User {
   personal_permissions?: string[];
 }
 
+// Алиас для данных текущего аутентифицированного пользователя
+export type CurrentUser = User;
+
+export interface ChatMember {
+  user_id: string;
+  user?: User;
+  joined_at: string; // ISO Date
+}
+
 export interface Chat {
   id: string; // ULID
   name: string | null;
@@ -42,4 +51,50 @@ export interface TokenResponse {
 
 export interface MsgResponse {
   message: string;
+}
+
+// Ответ /auth/identify
+export interface IdentifyResponse {
+  status: string;
+  error?: string;
+}
+
+// Ответ /auth/verify-code — бэкенд возвращает один из двух вариантов
+export interface VerifyCodeResponse {
+  next: 'home' | 'setup_profile';
+  access_token?: string;
+  refresh_token?: string;
+  setup_token?: string;
+}
+
+// Ответ /auth/setup — возвращает токены
+export type SetupResponse = TokenResponse;
+
+// Ответ /auth/refresh
+export type RefreshResponse = TokenResponse;
+
+// Запрос на создание пользователя
+export interface CreateUserRequest {
+  email: string;
+  full_name?: string;
+  role: UserRole;
+}
+
+// WebSocket входящее событие (базовый тип)
+export interface WebSocketEvent {
+  type: string;
+  data: Record<string, unknown>;
+}
+
+// WebSocket — событие нового сообщения
+export interface WebSocketNewMessageEvent {
+  type: 'message.new';
+  data: Message;
+}
+
+// FastAPI validation error item
+export interface FastApiValidationErrorItem {
+  loc: string[];
+  msg: string;
+  type: string;
 }

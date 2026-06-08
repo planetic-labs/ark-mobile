@@ -30,9 +30,10 @@ export default function LoginScreen() {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [setupToken, setSetupToken] = useState('');
   
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const setTokens = useAuthStore((state) => state.setTokens);
+  const setCurrentUser = useAuthStore((state) => state.setCurrentUser);
   const accessToken = useAuthStore((state) => state.accessToken);
-  const storedUser = useAuthStore((state) => state.user);
+  const storedUser = useAuthStore((state) => state.currentUser);
 
   const codeInputRef = useRef<TextInput>(null);
 
@@ -104,7 +105,8 @@ export default function LoginScreen() {
         const user = await api.users.me(response.access_token);
         
         // 3. Set auth state
-        setAuth(user, response.access_token, response.refresh_token);
+        setTokens(response.access_token!, response.refresh_token!);
+        setCurrentUser(user);
       }
       
       // Step transition is handled by useEffect on storedUser / accessToken
@@ -136,7 +138,8 @@ export default function LoginScreen() {
         throw new Error('Не удалось завершить регистрацию');
       }
       const user = await api.users.me(tokens.access_token);
-      setAuth(user, tokens.access_token, tokens.refresh_token);
+      setTokens(tokens.access_token, tokens.refresh_token);
+      setCurrentUser(user);
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Ошибка', error.message);

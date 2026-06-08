@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   thumbBackground: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#FAF8F5',
     justifyContent: 'center',
     alignItems: 'center',

@@ -1,5 +1,5 @@
 import { Tabs, Redirect, router } from 'expo-router';
-import { TouchableOpacity, Text, Platform, Alert, View } from 'react-native';
+import { TouchableOpacity, Text, Platform, Alert, View, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { useEffect } from 'react';
@@ -8,7 +8,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { api } from '../../services/api';
 import { useNotifications } from '../../hooks/useNotifications';
 
-const ChatsIcon = ({ color }: { color: string }) => (
+const ChatsIcon = ({ color }: { color: ColorValue }) => (
   <Svg width={23} height={23} viewBox="0 0 23 23" fill="none">
     <Path
       d="M4 6.5C4 5.1 5.1 4 6.5 4h10C17.9 4 19 5.1 19 6.5v7c0 1.4-1.1 2.5-2.5 2.5H9l-4 3.5v-3.5H6.5C5.1 16 4 14.9 4 13.5v-7z"
@@ -19,7 +19,7 @@ const ChatsIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
-const NavigatorIcon = ({ color }: { color: string }) => (
+const NavigatorIcon = ({ color }: { color: ColorValue }) => (
   <Svg width={23} height={23} viewBox="0 0 23 23" fill="none">
     <Circle cx={6} cy={6} r={2.2} stroke={color} strokeWidth={1.7} />
     <Circle cx={17} cy={11.5} r={2.2} stroke={color} strokeWidth={1.7} />
@@ -28,21 +28,21 @@ const NavigatorIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
-const VideoIcon = ({ color }: { color: string }) => (
+const VideoIcon = ({ color }: { color: ColorValue }) => (
   <Svg width={23} height={23} viewBox="0 0 23 23" fill="none">
     <Rect x={3.5} y={5} width={16} height={13} rx={2.6} stroke={color} strokeWidth={1.7} />
     <Path d="M10 9.3l4 2.2-4 2.2V9.3z" fill={color} />
   </Svg>
 );
 
-const MaterialsIcon = ({ color }: { color: string }) => (
+const MaterialsIcon = ({ color }: { color: ColorValue }) => (
   <Svg width={23} height={23} viewBox="0 0 23 23" fill="none">
     <Path d="M11.5 3.5l7.5 4-7.5 4-7.5-4 7.5-4z" stroke={color} strokeWidth={1.6} strokeLinejoin="round" />
     <Path d="M4.5 11.5l7 3.7 7-3.7M4.5 15l7 3.7 7-3.7" stroke={color} strokeWidth={1.6} strokeLinejoin="round" />
   </Svg>
 );
 
-const ChroniclesIcon = ({ color }: { color: string }) => (
+const ChroniclesIcon = ({ color }: { color: ColorValue }) => (
   <Svg width={23} height={23} viewBox="0 0 23 23" fill="none">
     <Path d="M6 4h8l4 4v11H6V4z" stroke={color} strokeWidth={1.7} strokeLinejoin="round" />
     <Path d="M8.5 9.5h6M8.5 12.5h6M8.5 15.5h4" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
@@ -110,7 +110,7 @@ export default function TabsLayout() {
         fontSize: 18,
       },
       headerLeft: () => {
-        const user = useAuthStore((state) => state.user);
+        const user = useAuthStore((state) => state.currentUser);
         const name = user?.full_name || user?.email || 'A';
         const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
         return (

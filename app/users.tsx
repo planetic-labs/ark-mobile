@@ -11,7 +11,7 @@ import { User, Chat } from '../types/shared';
 type RoleType = 'STUDENT' | 'WARRIOR' | 'MASTER' | 'ADMIN';
 
 export default function UsersScreen() {
-  const currentUser = useAuthStore((state) => state.user);
+  const currentUser = useAuthStore((state) => state.currentUser);
   const queryClient = useQueryClient();
   
   // Modal state

@@ -4,37 +4,48 @@ import Constants from 'expo-constants';
 import { Alert, Platform } from 'react-native';
 import { api } from '../services/api';
 
+// Expo SDK 56: shouldShowBanner и shouldShowList обязательны в NotificationBehavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
-export function useNotifications() {
-  const [notification, setNotification] = useState<Notifications.Notification | null>(null);
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+interface UseNotificationsResult {
+  notification: Notifications.Notification | null;
+  registerForPushNotifications: () => Promise<void>;
+}
 
-  const registerForPushNotifications = async () => {
+export function useNotifications(): UseNotificationsResult {
+  const [notification, setNotification] = useState<Notifications.Notification | null>(null);
+
+  // useRef для Subscription требует начальное значение в React 19
+  const notificationListenerRef = useRef<Notifications.Subscription | null>(null);
+  const responseListenerRef = useRef<Notifications.Subscription | null>(null);
+
+  const registerForPushNotifications = async (): Promise<void> => {
     try {
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
       if (existingStatus !== 'granted') {
+        // Объясняем пользователю зачем нужны уведомления — до запроса разрешения
         await new Promise<void>((resolve) => {
           Alert.alert(
-            "Разрешить уведомления",
-            "Для мгновенного получения важных сообщений от Мастера и сигналов сирен о начале встреч, пожалуйста, разрешите отправку уведомлений.",
+            'Разрешить уведомления',
+            'Для мгновенного получения важных сообщений от Мастера и сигналов сирен о начале встреч, пожалуйста, разрешите отправку уведомлений.',
             [
               {
-                text: "Позже",
-                style: "cancel",
+                text: 'Позже',
+                style: 'cancel',
                 onPress: () => resolve(),
               },
               {
-                text: "Продолжить",
+                text: 'Продолжить',
                 onPress: async () => {
                   const { status } = await Notifications.requestPermissionsAsync();
                   finalStatus = status;
@@ -48,13 +59,14 @@ export function useNotifications() {
       }
 
       if (finalStatus !== 'granted') {
-        console.log('Permission not granted for push notifications');
+        console.log('[Notifications] Разрешение не получено');
         return;
       }
 
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? '2f1240a1-b669-41d1-98b2-647a16cf399f';
+      const projectId =
+        Constants.expoConfig?.extra?.eas?.projectId ??
+        '2f1240a1-b669-41d1-98b2-647a16cf399f';
       const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-      console.log('Expo Push Token:', token);
 
       await api.users.registerPushToken(token);
 
@@ -65,7 +77,7 @@ export function useNotifications() {
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#b78845',
         });
-        
+
         await Notifications.setNotificationChannelAsync('siren_warrior', {
           name: 'Сирена Воина',
           importance: Notifications.AndroidImportance.MAX,
@@ -83,26 +95,23 @@ export function useNotifications() {
         });
       }
     } catch (error) {
-      console.error('Error during push notification registration:', error);
+      console.error('[Notifications] Ошибка регистрации push-токена:', error);
     }
   };
 
   useEffect(() => {
-    notificationListener.current = Notifications.addNotificationReceivedListener((notif) => {
+    notificationListenerRef.current = Notifications.addNotificationReceivedListener((notif) => {
       setNotification(notif);
     });
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log('User interacted with notification:', response);
+    responseListenerRef.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      console.log('[Notifications] Пользователь нажал на уведомление:', response.notification.request.identifier);
     });
 
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
+      // В Expo SDK 56 подписка имеет метод .remove() вместо static removeNotificationSubscription
+      notificationListenerRef.current?.remove();
+      responseListenerRef.current?.remove();
     };
   }, []);
 

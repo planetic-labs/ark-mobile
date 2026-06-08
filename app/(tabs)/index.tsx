@@ -86,7 +86,7 @@ const getChatDecoration = (name: string) => {
 };
 
 export default function ChatListScreen() {
-  const currentUser = useAuthStore((state) => state.user);
+  const currentUser = useAuthStore((state) => state.currentUser);
   const [activeTab, setActiveTab] = useState('Основные');
 
   const { data: chats, isLoading, error, refetch } = useQuery({
