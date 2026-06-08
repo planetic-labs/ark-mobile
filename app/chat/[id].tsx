@@ -173,7 +173,7 @@ export default function ChatScreen() {
     return items.length > 0 ? items : [{ num: '•', text }];
   };
 
-  const renderMessageItem = (item: any, index: number) => {
+  const renderMessageItem = (item: Message, index: number) => {
     const sender = getSenderDeco(item.sender_id);
     const contentText = item.content || '';
     const formattedTime = new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

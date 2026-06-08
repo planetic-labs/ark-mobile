@@ -25,14 +25,14 @@ export default function UsersScreen() {
     queryFn: api.users.listAll,
   });
 
-  const chatMutation = useMutation<Chat, any, string>({
+  const chatMutation = useMutation<Chat, Error, string>({
     mutationFn: (userId: string) => api.messaging.createChat(userId),
     onSuccess: (chat) => {
       router.push({ pathname: '/chat/[id]', params: { id: chat.id } });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       Alert.alert('Error', error.message);
-    }
+    },
   });
 
   const createUserMutation = useMutation({
@@ -46,9 +46,9 @@ export default function UsersScreen() {
       setRole('STUDENT');
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       Alert.alert('Error', error.message);
-    }
+    },
   });
 
   const handleCreateUser = () => {

@@ -51,12 +51,12 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
-            <Stack.Screen 
-              name="(auth)/login" 
-              options={{ 
-                title: 'Login',
-                animation: 'fade'
-              }} 
+            <Stack.Screen
+              name="(auth)"
+              options={{
+                headerShown: false,
+                animation: 'fade',
+              }}
             />
             <Stack.Screen 
               name="(tabs)" 
