@@ -1,9 +1,12 @@
+import React from 'react';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useFonts } from 'expo-font';
 import { ActivityIndicator, View } from 'react-native';
+import { useOfflineQueue } from '../hooks/useOfflineQueue';
+import { OfflineBanner } from '../components/OfflineBanner';
 import {
   Spectral_400Regular,
   Spectral_500Medium,
@@ -21,9 +24,60 @@ import {
   IBMPlexMono_500Medium,
 } from '@expo-google-fonts/ibm-plex-mono';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Данные считаются свежими 5 минут — повторных запросов нет
+      staleTime: 5 * 60 * 1_000,
+      // Кэш хранится 30 минут — приложение работает офлайн из кэша
+      gcTime: 30 * 60 * 1_000,
+      // Запросы не блокируются при отсутствии сети
+      networkMode: 'offlineFirst',
+      retry: 1,
+    },
+    mutations: {
+      networkMode: 'offlineFirst',
+    },
+  },
+});
 
-export default function RootLayout() {
+// AppContent находится внутри QueryClientProvider — имеет доступ к useQueryClient
+function AppContent(): React.ReactElement {
+  useOfflineQueue();
+
+  return (
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen
+        name="(auth)"
+        options={{ headerShown: false, animation: 'fade' }}
+      />
+      <Stack.Screen
+        name="(tabs)"
+        options={{ headerShown: false, animation: 'fade' }}
+      />
+      <Stack.Screen
+        name="users"
+        options={{
+          headerShown: true,
+          title: 'Участники',
+          headerStyle: { backgroundColor: '#FCFAF5' },
+          headerTitleStyle: {
+            fontFamily: 'Spectral_600SemiBold',
+            fontSize: 18,
+            color: '#221E17',
+          },
+          headerTintColor: '#B9770C',
+        }}
+      />
+      </Stack>
+      <OfflineBanner />
+    </View>
+  );
+}
+
+export default function RootLayout(): React.ReactElement | null {
   const [fontsLoaded] = useFonts({
     Spectral_400Regular,
     Spectral_500Medium,
@@ -49,39 +103,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <KeyboardProvider>
         <QueryClientProvider client={queryClient}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen
-              name="(auth)"
-              options={{
-                headerShown: false,
-                animation: 'fade',
-              }}
-            />
-            <Stack.Screen 
-              name="(tabs)" 
-              options={{ 
-                headerShown: false,
-                animation: 'fade'
-              }} 
-            />
-            <Stack.Screen 
-              name="users" 
-              options={{ 
-                headerShown: true,
-                title: 'Участники',
-                headerStyle: {
-                  backgroundColor: '#FCFAF5',
-                },
-                headerTitleStyle: {
-                  fontFamily: 'Spectral_600SemiBold',
-                  fontSize: 18,
-                  color: '#221E17',
-                },
-                headerTintColor: '#B9770C',
-              }} 
-            />
-          </Stack>
+          <AppContent />
         </QueryClientProvider>
       </KeyboardProvider>
     </SafeAreaProvider>
