@@ -14,7 +14,10 @@ module.exports = ({ config }) => {
     assetBundlePatterns: ["**/*"],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.planeticlabs.ark"
+      bundleIdentifier: "com.planeticlabs.ark",
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false
+      }
     },
     android: {
       package: "com.planeticlabs.ark",
@@ -74,8 +77,8 @@ module.exports = ({ config }) => {
 
   if (!isProd) {
     baseConfig.name = `${baseConfig.name} (Dev)`;
-    baseConfig.ios.bundleIdentifier = `${baseConfig.ios.bundleIdentifier}.dev`;
-    baseConfig.android.package = `${baseConfig.android.package}.dev`;
+    baseConfig.ios.bundleIdentifier = `${baseConfig.ios.bundleIdentifier}dev`;
+    baseConfig.android.package = `${baseConfig.android.package}dev`;
     baseConfig.scheme = `${baseConfig.scheme}-dev`;
   }
 

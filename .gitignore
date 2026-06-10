@@ -17,7 +17,7 @@ ios/main.jsbundle
 .env.preview
 .env.*.local
 google-services.json
-eas.json
+ark-messenger-*.json
 
 # Android
 *.apk

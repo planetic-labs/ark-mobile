@@ -52,3 +52,5 @@ requirements.pdf
 !google-services.json
 release.sh
 validate.sh
+scripts/
+ark-messenger-*.json

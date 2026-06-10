@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { router } from 'expo-router';
+import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { COLORS } from '../../constants/Config';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { api } from '../../services/api';
@@ -146,6 +148,20 @@ export default function SettingsScreen() {
   const isWarrior = currentUser?.role === 'WARRIOR' || currentUser?.role === 'MASTER';
   const roleDisplayName = currentUser?.role === 'ADMIN' ? 'Администратор' : '◈ Воин Света';
 
+  const getVersionString = (): string => {
+    const pkgVersion = Constants.expoConfig?.version || '0.0.0';
+    if (!Updates.channel && !Updates.createdAt) {
+      return `local-${pkgVersion}`;
+    }
+    
+    const branch = Updates.channel || 'unknown';
+    const now = Updates.createdAt ? new Date(Updates.createdAt) : new Date();
+    const pad = (num: number) => String(num).padStart(2, '0');
+    const timeStr = `${pad(now.getHours())}${pad(now.getMinutes())}`;
+    
+    return `${branch}-${pkgVersion}-${timeStr}`;
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
@@ -223,7 +239,7 @@ export default function SettingsScreen() {
 
         {/* Application version */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Версия приложения: 2026.6.10</Text>
+          <Text style={styles.versionText}>{getVersionString()}</Text>
         </View>
 
       </ScrollView>
