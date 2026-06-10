@@ -7,7 +7,7 @@ import { COLORS } from '../constants/Config';
 import { router } from 'expo-router';
 import { useAuthStore } from '../stores/useAuthStore';
 import { type User, type Chat } from '../types/shared';
-import { usersStyles as styles } from './usersStyles';
+import { usersStyles as styles } from '../styles/usersStyles';
 
 type RoleType = 'STUDENT' | 'WARRIOR' | 'MASTER' | 'ADMIN';
 
