@@ -150,6 +150,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ push_token: pushToken }),
       }),
+
+    unregisterPushToken: (pushToken: string): Promise<MsgResponse> =>
+      request<MsgResponse>(`/users/me/push-token?push_token=${encodeURIComponent(pushToken)}`, {
+        method: 'DELETE',
+      }),
   },
 
   messaging: {

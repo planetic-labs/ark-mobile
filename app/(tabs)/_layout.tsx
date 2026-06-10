@@ -67,6 +67,14 @@ export default function TabsLayout() {
 
   const handleLogout = async () => {
     console.log("Logout triggered from UI");
+    const pushToken = useAuthStore.getState().pushToken;
+    if (pushToken) {
+      try {
+        await api.users.unregisterPushToken(pushToken);
+      } catch (e) {
+        console.log("Failed to unregister push token on server", e);
+      }
+    }
     try {
       await api.auth.logout();
     } catch (e) {

@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Alert, Platform } from 'react-native';
 import { api } from '../services/api';
+import { useAuthStore } from '../stores/useAuthStore';
 
 // Expo SDK 56: shouldShowBanner и shouldShowList обязательны в NotificationBehavior
 Notifications.setNotificationHandler({
@@ -69,6 +70,7 @@ export function useNotifications(): UseNotificationsResult {
       const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 
       await api.users.registerPushToken(token);
+      useAuthStore.getState().setPushToken(token);
 
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {

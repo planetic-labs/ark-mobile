@@ -23,6 +23,7 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   currentUser: CurrentUser | null;
+  pushToken: string | null;
 
   // Только в памяти — не персистировать
   authStep: 'idle' | 'code' | 'setup';
@@ -32,6 +33,7 @@ interface AuthState {
   // Действия
   setTokens: (accessToken: string, refreshToken: string) => void;
   setCurrentUser: (user: CurrentUser) => void;
+  setPushToken: (token: string | null) => void;
   setAuthStep: (step: AuthState['authStep']) => void;
   setPendingEmail: (email: string | null) => void;
   setSetupToken: (token: string | null) => void;
@@ -45,6 +47,7 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       currentUser: null,
+      pushToken: null,
 
       // Начальные значения in-memory полей
       authStep: 'idle',
@@ -56,6 +59,9 @@ export const useAuthStore = create<AuthState>()(
 
       setCurrentUser: (user) =>
         set({ currentUser: user }),
+
+      setPushToken: (token) =>
+        set({ pushToken: token }),
 
       setAuthStep: (step) =>
         set({ authStep: step }),
@@ -71,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
           accessToken: null,
           refreshToken: null,
           currentUser: null,
+          pushToken: null,
           authStep: 'idle',
           pendingEmail: null,
           setupToken: null,
@@ -84,6 +91,7 @@ export const useAuthStore = create<AuthState>()(
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
         currentUser: state.currentUser,
+        pushToken: state.pushToken,
       }),
     }
   )
