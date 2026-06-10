@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, FONTS } from '../../constants/Config';
+import { COLORS, FONTS } from '../constants/Config';
 export const chroniclesStyles = StyleSheet.create({
   container: {
     flex: 1,

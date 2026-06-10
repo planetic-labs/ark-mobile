@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   FlatList,
@@ -68,6 +68,8 @@ export default function ChatScreen(): React.ReactElement {
   const { lastEvent } = useWebSocket();
   const router = useRouter();
 
+  const flatListRef = useRef<FlatList>(null);
+
   // Новые сообщения через WebSocket → в кэш TanStack Query
   useEffect(() => {
     if (lastEvent?.type !== 'message.new') return;
@@ -76,7 +78,7 @@ export default function ChatScreen(): React.ReactElement {
     queryClient.setQueryData<Message[]>(['messages', id], (old) => {
       if (!old) return [event.data];
       if (old.some((m) => m.id === event.data.id)) return old;
-      return [event.data, ...old];
+      return [...old, event.data];
     });
   }, [lastEvent, id, queryClient]);
 
@@ -97,6 +99,15 @@ export default function ChatScreen(): React.ReactElement {
     queryFn: () => api.messaging.getMessages(id as string),
     enabled: !!id && id !== 'undefined',
   });
+
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      const timer = setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [messages?.length]);
 
   const { data: users } = useQuery({
     queryKey: ['users'],
@@ -222,8 +233,8 @@ export default function ChatScreen(): React.ReactElement {
           </View>
         ) : (
           <FlatList
+            ref={flatListRef}
             data={messages}
-            inverted
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"

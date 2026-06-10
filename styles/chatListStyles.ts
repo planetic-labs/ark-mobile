@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, FONTS } from '../../constants/Config';
+import { COLORS, FONTS } from '../constants/Config';
 
 export const chatListStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },

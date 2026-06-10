@@ -1,21 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { api } from '../../services/api';
 import { COLORS } from '../../constants/Config';
 import { getChatDecoration } from '../../constants/chatDecorations';
-import { chatListStyles as styles } from './chatListStyles';
+import { chatListStyles as styles } from '../../styles/chatListStyles';
 
 const TABS = ['Мастер', 'Основные', 'Воины', 'Команда', 'Ретрит'] as const;
 
 export default function ChatListScreen(): React.ReactElement {
-  const [activeTab, setActiveTab] = useState('Основные');
+  const [activeTab, setActiveTab] = useState<typeof TABS[number]>('Основные');
 
   const { data: chats, isLoading, error, refetch } = useQuery({
     queryKey: ['chats'],
     queryFn: api.messaging.listChats,
   });
+
+  const filteredChats = useMemo(() => {
+    if (!chats) return [];
+    return chats.filter((chat) => {
+      const name = (chat.name || '').toLowerCase();
+      
+      switch (activeTab) {
+        case 'Мастер':
+          return name.includes('мастер') || name.includes('сатсанг');
+        case 'Воины':
+          return name.includes('воин') || name.includes('инкубатор') || name.includes('реанимация');
+        case 'Команда':
+          return name.includes('команда') || name.includes('админ') || name.includes('техническ') || name.includes('орг');
+        case 'Ретрит':
+          return name.includes('ретрит') || name.includes('практик') || name.includes('гудение');
+        case 'Основные':
+        default:
+          const isMaster = name.includes('мастер') || name.includes('сатсанг');
+          const isWarrior = name.includes('воин') || name.includes('инкубатор') || name.includes('реанимация');
+          const isTeam = name.includes('команда') || name.includes('админ') || name.includes('техническ') || name.includes('орг');
+          const isRetreat = name.includes('ретрит') || name.includes('практик') || name.includes('гудение');
+          return !isMaster && !isWarrior && !isTeam && !isRetreat;
+      }
+    });
+  }, [chats, activeTab]);
 
   if (isLoading) {
     return <View style={styles.centered}><ActivityIndicator size="large" color={COLORS.amber} /></View>;
@@ -35,7 +60,7 @@ export default function ChatListScreen(): React.ReactElement {
   return (
     <View style={styles.container}>
       <FlatList
-        data={chats}
+        data={filteredChats}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <View style={styles.headerContainer}>
@@ -95,6 +120,7 @@ export default function ChatListScreen(): React.ReactElement {
               <View style={styles.chatBody}>
                 <View style={styles.chatTop}>
                   <Text style={[styles.chatName, deco.badge > 0 && styles.chatNameUnread]}>
+                    {deco.isWarrior && <Text style={{ color: COLORS.amberSoft }}>◈ </Text>}
                     {item.name || 'Личный чат'}
                   </Text>
                   <Text style={styles.chatTime}>{deco.time}</Text>
@@ -125,7 +151,7 @@ export default function ChatListScreen(): React.ReactElement {
             </TouchableOpacity>
           );
         }}
-        ListEmptyComponent={<Text style={styles.emptyText}>Нет активных чатов</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>Нет чатов в категории "{activeTab}"</Text>}
       />
     </View>
   );

@@ -1,5 +1,5 @@
-import { Tabs, Redirect, router } from 'expo-router';
-import { TouchableOpacity, Text, Platform, Alert, View, type ColorValue } from 'react-native';
+import { Tabs, Redirect } from 'expo-router';
+import { TouchableOpacity, Text, Platform, View, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { useEffect } from 'react';
@@ -46,6 +46,18 @@ const ChroniclesIcon = ({ color }: { color: ColorValue }) => (
   <Svg width={23} height={23} viewBox="0 0 23 23" fill="none">
     <Path d="M6 4h8l4 4v11H6V4z" stroke={color} strokeWidth={1.7} strokeLinejoin="round" />
     <Path d="M8.5 9.5h6M8.5 12.5h6M8.5 15.5h4" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+  </Svg>
+);
+
+const SettingsIcon = ({ color }: { color: ColorValue }) => (
+  <Svg width={23} height={23} viewBox="0 0 24 24" fill="none">
+    <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={1.7} />
+    <Path
+      d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
+      stroke={color}
+      strokeWidth={1.7}
+      strokeLinejoin="round"
+    />
   </Svg>
 );
 
@@ -117,71 +129,14 @@ export default function TabsLayout() {
         color: COLORS.textPrimary,
         fontSize: 18,
       },
-      headerLeft: () => {
-        const user = useAuthStore((state) => state.currentUser);
-        const name = user?.full_name || user?.email || 'A';
-        const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-        return (
-          <TouchableOpacity 
-            onPress={() => {
-              Alert.alert(
-                "Выход из системы",
-                "Вы уверены, что хотите выйти?",
-                [
-                  { text: "Отмена", style: "cancel" },
-                  { text: "Выйти", style: "destructive", onPress: handleLogout }
-                ]
-              );
-            }} 
-            style={{
-              marginLeft: 15,
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: '#DCD5C7',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ fontFamily: FONTS.bodySemiBold, fontSize: 13, color: '#5F5848' }}>
-              {initials}
-            </Text>
-          </TouchableOpacity>
-        );
-      },
-      headerRight: () => (
-        <TouchableOpacity 
-          onPress={() => router.push('/users')} 
-          style={{ marginRight: 15, paddingHorizontal: 10, paddingVertical: 5 }}
-        >
-          <Svg width={20} height={20} viewBox="0 0 23 23" fill="none">
-            <Circle cx={9} cy={7.5} r={3} stroke={COLORS.amber} strokeWidth={1.7} fill="none" />
-            <Path
-              d="M4 16c0-2.5 2-4.5 5-4.5s5 2 5 4.5"
-              stroke={COLORS.amber}
-              strokeWidth={1.7}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-            <Circle cx={15} cy={6.5} r={2.2} stroke={COLORS.amber} strokeWidth={1.7} fill="none" />
-            <Path
-              d="M12 14c0-1.8 1-3 3-3s3 1.2 3 3"
-              stroke={COLORS.amber}
-              strokeWidth={1.7}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-          </Svg>
-        </TouchableOpacity>
-      ),
+
       tabBarIcon: ({ color }) => {
         if (route.name === 'index') return <ChatsIcon color={color} />;
         if (route.name === 'navigator') return <NavigatorIcon color={color} />;
         if (route.name === 'video') return <VideoIcon color={color} />;
         if (route.name === 'materials') return <MaterialsIcon color={color} />;
         if (route.name === 'chronicles') return <ChroniclesIcon color={color} />;
+        if (route.name === 'settings') return <SettingsIcon color={color} />;
         return null;
       }
     })}>
@@ -204,6 +159,7 @@ export default function TabsLayout() {
         options={{ 
           title: 'Видео',
           headerShown: true,
+          href: null,
         }} 
       />
       <Tabs.Screen 
@@ -217,6 +173,14 @@ export default function TabsLayout() {
         name="chronicles" 
         options={{ 
           title: 'Летописи',
+          headerShown: true,
+          href: null,
+        }} 
+      />
+      <Tabs.Screen 
+        name="settings" 
+        options={{ 
+          title: 'Настройки',
           headerShown: true,
         }} 
       />

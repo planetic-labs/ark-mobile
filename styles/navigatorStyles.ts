@@ -1,5 +1,5 @@
 import { StyleSheet, Platform } from 'react-native';
-import { COLORS, FONTS } from '../../constants/Config';
+import { COLORS, FONTS } from '../constants/Config';
 export const navigatorStyles = StyleSheet.create({
   container: {
     flex: 1,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, FlatList, Platform } from 'react-native';
-import { navigatorStyles as styles } from './navigatorStyles';
+import { navigatorStyles as styles } from '../../styles/navigatorStyles';
 import { Tabs } from 'expo-router';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { COLORS, FONTS } from '../../constants/Config';

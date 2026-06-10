@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity } from 'react-native';
-import { chroniclesStyles as styles } from './chroniclesStyles';
+import { chroniclesStyles as styles } from '../../styles/chroniclesStyles';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS, FONTS } from '../../constants/Config';
 
