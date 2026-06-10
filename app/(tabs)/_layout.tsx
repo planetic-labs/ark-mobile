@@ -7,6 +7,7 @@ import { COLORS, FONTS } from '../../constants/Config';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { api } from '../../services/api';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useWebSocket } from '../../hooks/useWebSocket';
 
 const ChatsIcon = ({ color }: { color: ColorValue }) => (
   <Svg width={23} height={23} viewBox="0 0 23 23" fill="none">
@@ -66,6 +67,8 @@ export default function TabsLayout() {
   const logout = useAuthStore((state) => state.logout);
   const insets = useSafeAreaInsets();
   const { registerForPushNotifications } = useNotifications();
+
+  useWebSocket();
 
   useEffect(() => {
     if (accessToken) {

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useWebSocketStore } from '../stores/useWebSocketStore';
 import type { WebSocketEvent } from '../types/shared';
@@ -49,6 +50,14 @@ export function useWebSocket(): UseWebSocketResult {
 
     return unsubscribe;
   }, [accessToken, connect]);
+
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (lastEvent?.type === 'message.new') {
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+    }
+  }, [lastEvent, queryClient]);
 
   return { isConnected, lastEvent };
 }
