@@ -34,7 +34,7 @@ module.exports = ({ config }) => {
       fallbackToCacheTimeout: 3000
     },
     runtimeVersion: {
-      policy: "appVersion"
+      policy: "fingerprint"
     },
     extra: {
       eas: {

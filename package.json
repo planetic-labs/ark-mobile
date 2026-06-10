@@ -1,6 +1,6 @@
 {
   "name": "mobile",
-  "version": "2026.06.07",
+  "version": "2026.06.10",
   "main": "expo-router/entry",
   "scripts": {
     "dev": "expo start",
@@ -11,9 +11,16 @@
     "web": "expo start --web",
     "test": "jest --watchAll=false",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "build:dev": "node -e \"const fs = require('fs'); const pkg = require('./package.json'); const d = new Date(); pkg.version = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));\" && APP_ENV=development npx eas-cli build --platform android --profile development",
-    "build:preview": "node -e \"const fs = require('fs'); const pkg = require('./package.json'); const d = new Date(); pkg.version = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));\" && APP_ENV=preview npx eas-cli build --platform android --profile preview",
-    "build:prod": "node -e \"const fs = require('fs'); const pkg = require('./package.json'); const d = new Date(); pkg.version = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));\" && APP_ENV=production npx eas-cli build --platform android --profile production",
+    "version:update": "node -e \"const fs = require('fs'); const pkg = require('./package.json'); const d = new Date(); pkg.version = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));\"",
+    "build:dev": "pnpm version:update && APP_ENV=development npx eas-cli build --platform all --profile development",
+    "build:dev:android": "pnpm version:update && APP_ENV=development npx eas-cli build --platform android --profile development",
+    "build:dev:ios": "pnpm version:update && APP_ENV=development npx eas-cli build --platform ios --profile development",
+    "build:preview": "pnpm version:update && APP_ENV=preview npx eas-cli build --platform all --profile preview",
+    "build:preview:android": "pnpm version:update && APP_ENV=preview npx eas-cli build --platform android --profile preview",
+    "build:preview:ios": "pnpm version:update && APP_ENV=preview npx eas-cli build --platform ios --profile preview",
+    "build:prod": "pnpm version:update && APP_ENV=production npx eas-cli build --platform all --profile production",
+    "build:prod:android": "pnpm version:update && APP_ENV=production npx eas-cli build --platform android --profile production",
+    "build:prod:ios": "pnpm version:update && APP_ENV=production npx eas-cli build --platform ios --profile production",
     "update:preview": "APP_ENV=preview npx eas-cli update --branch preview --message \"$(git log -1 --oneline)\"",
     "update:production": "APP_ENV=production npx eas-cli update --branch production --message \"$(git log -1 --oneline)\"",
     "release": "./release.sh"
@@ -28,7 +35,6 @@
     "@tanstack/react-query": "^5.101.0",
     "babel-preset-expo": "~56.0.14",
     "expo": "~56.0.9",
-    "expo-av": "^16.0.8",
     "expo-constants": "~56.0.17",
     "expo-dev-client": "~56.0.19",
     "expo-document-picker": "~56.0.4",
@@ -36,6 +42,7 @@
     "expo-font": "^56.0.5",
     "expo-image": "~56.0.10",
     "expo-image-picker": "~56.0.16",
+    "expo-insights": "~56.0.16",
     "expo-linking": "~56.0.13",
     "expo-notifications": "~56.0.16",
     "expo-router": "~56.2.9",
@@ -65,15 +72,5 @@
     "jest-expo": "~56.0.4",
     "typescript": "~6.0.3"
   },
-  "private": true,
-  "expo": {
-    "doctor": {
-      "reactNativeDirectoryCheck": {
-        "exclude": [
-          "expo-av"
-        ],
-        "listUnknownPackages": false
-      }
-    }
-  }
+  "private": true
 }
