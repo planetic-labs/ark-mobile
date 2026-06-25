@@ -128,7 +128,7 @@ async function run() {
   
   const child = spawnSync('npx', ['eas-cli', 'update', '--branch', branch, '--environment', branch, '--message', summary], {
     stdio: 'inherit',
-    env: process.env
+    env: { ...process.env, CI: '1' }
   });
   
   if (child.status === 0) {
