@@ -133,12 +133,6 @@ async function run() {
   
   if (child.status === 0) {
     try {
-      const now = new Date();
-      const pad = (num) => String(num).padStart(2, '0');
-      const timeStr = `${pad(now.getHours())}${pad(now.getMinutes())}`;
-      
-      const tagName = `${branch}-${newVersion || '0.0.0'}-${timeStr}`;
-      
       console.log('\nДобавляем package.json в коммит...');
       execSync('git add package.json', { stdio: 'inherit' });
       
@@ -148,16 +142,9 @@ async function run() {
       console.log('Пушим коммит в удаленный репозиторий...');
       execSync('git push origin HEAD', { stdio: 'inherit' });
       
-      console.log(`Создаем git-тег: ${tagName}...`);
-      const escapedSummary = summary.replace(/"/g, '\\"');
-      execSync(`git tag -a "${tagName}" -m "${escapedSummary}"`, { stdio: 'inherit' });
-      
-      console.log(`Отправляем тег ${tagName} в удаленный репозиторий...`);
-      execSync(`git push origin "${tagName}"`, { stdio: 'inherit' });
-      
-      console.log(`✓ Коммит и тег успешно созданы и отправлены на GitHub.`);
+      console.log(`✓ Коммит успешно создан и отправлен на GitHub.`);
     } catch (e) {
-      console.error('Не удалось завершить создание коммита или git-тега:', e.message);
+      console.error('Не удалось завершить создание коммита:', e.message);
     }
   }
   
