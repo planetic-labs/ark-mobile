@@ -46,7 +46,9 @@ export interface Message {
 export interface TokenResponse {
   access_token: string;
   refresh_token: string;
-  token_type: string;
+  expires_in: number;
+  roles: string[];
+  token_type?: string;
 }
 
 export interface MsgResponse {
@@ -55,16 +57,19 @@ export interface MsgResponse {
 
 // Ответ /auth/identify
 export interface IdentifyResponse {
-  status: string;
+  next?: string;
+  status?: string;
   error?: string;
 }
 
 // Ответ /auth/verify-code — бэкенд возвращает один из двух вариантов
 export interface VerifyCodeResponse {
-  next: 'home' | 'setup_profile';
+  next: 'home' | 'setup_profile' | string;
   access_token?: string;
   refresh_token?: string;
   setup_token?: string;
+  expires_in?: number;
+  roles?: string[];
 }
 
 // Ответ /auth/setup — возвращает токены

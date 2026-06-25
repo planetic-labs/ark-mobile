@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useFonts } from 'expo-font';
 import { ActivityIndicator, View } from 'react-native';
+import { ObserveRoot, useObserve } from 'expo-observe';
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
 import { OfflineBanner } from '../components/OfflineBanner';
 import {
@@ -77,7 +78,8 @@ function AppContent(): React.ReactElement {
   );
 }
 
-export default function RootLayout(): React.ReactElement | null {
+function RootLayoutContent(): React.ReactElement | null {
+  const { markInteractive } = useObserve();
   const [fontsLoaded] = useFonts({
     Spectral_400Regular,
     Spectral_500Medium,
@@ -90,6 +92,12 @@ export default function RootLayout(): React.ReactElement | null {
     IBMPlexMono_400Regular,
     IBMPlexMono_500Medium,
   });
+
+  React.useEffect(() => {
+    if (fontsLoaded) {
+      markInteractive();
+    }
+  }, [fontsLoaded, markInteractive]);
 
   if (!fontsLoaded) {
     return (
@@ -109,3 +117,5 @@ export default function RootLayout(): React.ReactElement | null {
     </SafeAreaProvider>
   );
 }
+
+export default ObserveRoot.wrap(RootLayoutContent);

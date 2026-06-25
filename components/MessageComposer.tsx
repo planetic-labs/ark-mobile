@@ -34,6 +34,7 @@ export function MessageComposer({
         placeholder="Сообщение или отчёт…"
         placeholderTextColor={COLORS.textFaint}
         multiline
+        maxLength={4000}
       />
 
       <TouchableOpacity
