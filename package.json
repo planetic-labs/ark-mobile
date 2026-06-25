@@ -11,7 +11,7 @@
     "web": "expo start --web",
     "test": "jest --watchAll=false",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "version:update": "node -e \"const fs = require('fs'); const pkg = require('./package.json'); const d = new Date(); pkg.version = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0'); fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));\"",
+    "version:update": "node scripts/update-version.js",
     "build:dev": "APP_ENV=development npx eas-cli build --platform all --profile development",
     "build:dev:android": "APP_ENV=development npx eas-cli build --platform android --profile development",
     "build:dev:ios": "APP_ENV=development npx eas-cli build --platform ios --profile development",
