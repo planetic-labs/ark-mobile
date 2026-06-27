@@ -39,6 +39,8 @@ function parseErrorMessage(status: number, statusText: string, text: string): st
   return fallback;
 }
 
+let refreshPromise: Promise<string> | null = null;
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -60,25 +62,33 @@ async function request<T>(
   const isAuthPath = path.startsWith('/auth');
   if (response.status === 401 && refreshToken && !manualToken && !isAuthPath) {
     try {
-      const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
+      if (!refreshPromise) {
+        refreshPromise = (async () => {
+          const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+          });
 
-      if (refreshResponse.ok) {
-        const tokens = (await refreshResponse.json()) as TokenResponse;
-        const { currentUser } = useAuthStore.getState();
-        setTokens(tokens.access_token, tokens.refresh_token);
-        if (currentUser) {
-          setCurrentUser(currentUser);
-        }
+          if (!refreshResponse.ok) {
+            throw new Error('Refresh failed');
+          }
 
-        headers.set('Authorization', `Bearer ${tokens.access_token}`);
-        response = await fetch(`${API_URL}${path}`, { ...options, headers });
-      } else {
-        logout();
+          const tokens = (await refreshResponse.json()) as TokenResponse;
+          const { currentUser } = useAuthStore.getState();
+          setTokens(tokens.access_token, tokens.refresh_token);
+          if (currentUser) {
+            setCurrentUser(currentUser);
+          }
+          return tokens.access_token;
+        })().finally(() => {
+          refreshPromise = null;
+        });
       }
+
+      const newAccessToken = await refreshPromise;
+      headers.set('Authorization', `Bearer ${newAccessToken}`);
+      response = await fetch(`${API_URL}${path}`, { ...options, headers });
     } catch {
       logout();
     }

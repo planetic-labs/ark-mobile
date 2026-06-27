@@ -26,6 +26,7 @@ interface MessageBubbleProps {
   content: string;
   formattedTime: string;
   sender: SenderDeco;
+  isPending?: boolean;
 }
 
 interface ReportCardProps {
@@ -37,22 +38,25 @@ interface ReportCardProps {
   reactions: ReactionState;
   onToggleStudied: () => void;
   onToggleReaction: (type: 'pray' | 'eye') => void;
+  isPending?: boolean;
 }
 
 interface CorrectionBubbleProps {
   content: string;
   formattedTime: string;
   sender: SenderDeco;
+  isPending?: boolean;
 }
 
 // Обычное сообщение (Воин или Ученик)
-export function MessageBubble({
+export const MessageBubble = React.memo(function MessageBubble({
   content,
   formattedTime,
   sender,
+  isPending,
 }: MessageBubbleProps): React.ReactElement {
   return (
-    <View style={styles.msgRow}>
+    <View style={[styles.msgRow, isPending && styles.pendingBubble]}>
       <View style={[styles.avatar, sender.isWarrior && styles.avatarWarrior]}>
         <Text style={[styles.avatarText, sender.isWarrior && styles.avatarTextWarrior]}>
           {sender.avatar}
@@ -65,15 +69,15 @@ export function MessageBubble({
         <Text style={styles.messageText}>{content}</Text>
         <View style={styles.metaRow}>
           <Text style={styles.timeText}>{formattedTime}</Text>
-          <Text style={styles.readText}>✓✓</Text>
+          <Text style={styles.readText}>{isPending ? '⏳' : '✓✓'}</Text>
         </View>
       </View>
     </View>
   );
-}
+});
 
 // Карточка отчёта ученика с кнопкой «Изучить» и реакциями
-export function ReportCard({
+export const ReportCard = React.memo(function ReportCard({
   sender,
   formattedTime,
   fullDate,
@@ -82,9 +86,10 @@ export function ReportCard({
   reactions,
   onToggleStudied,
   onToggleReaction,
+  isPending,
 }: ReportCardProps): React.ReactElement {
   return (
-    <View style={styles.msgRow}>
+    <View style={[styles.msgRow, isPending && styles.pendingBubble]}>
       <View style={[styles.avatar, sender.isWarrior && styles.avatarWarrior]}>
         <Text style={[styles.avatarText, sender.isWarrior && styles.avatarTextWarrior]}>
           {sender.avatar}
@@ -113,6 +118,7 @@ export function ReportCard({
             <TouchableOpacity
               style={[styles.btnStudy, isStudied && styles.btnStudyDone]}
               onPress={onToggleStudied}
+              disabled={isPending}
             >
               <Text style={[styles.btnStudyText, isStudied && styles.btnStudyTextDone]}>
                 {isStudied ? '✓ Изучен' : 'Изучить'}
@@ -134,6 +140,7 @@ export function ReportCard({
                   key={type}
                   style={[styles.reactChip, active && styles.reactChipMine]}
                   onPress={() => onToggleReaction(type)}
+                  disabled={isPending}
                 >
                   <Text style={[styles.reactChipText, active && styles.reactChipTextMine]}>
                     {emoji} {count}
@@ -141,7 +148,7 @@ export function ReportCard({
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity style={styles.reactChipAdd}>
+            <TouchableOpacity style={styles.reactChipAdd} disabled={isPending}>
               <Text style={styles.reactChipAddText}>+</Text>
             </TouchableOpacity>
           </View>
@@ -149,16 +156,17 @@ export function ReportCard({
       </View>
     </View>
   );
-}
+});
 
 // Корректировка Воина к отчёту — отображается с левой границей
-export function CorrectionBubble({
+export const CorrectionBubble = React.memo(function CorrectionBubble({
   content,
   formattedTime,
   sender,
+  isPending,
 }: CorrectionBubbleProps): React.ReactElement {
   return (
-    <View style={styles.correctionContainer}>
+    <View style={[styles.correctionContainer, isPending && styles.pendingBubble]}>
       <Text style={styles.correctionTag}>◈ Корректировка · тред летописи</Text>
       <View style={[styles.msgRow, styles.msgRowInner]}>
         <View style={[styles.avatar, styles.avatarWarrior]}>
@@ -169,13 +177,13 @@ export function CorrectionBubble({
           <Text style={styles.messageText}>{content}</Text>
           <View style={styles.metaRow}>
             <Text style={styles.timeText}>{formattedTime}</Text>
-            <Text style={styles.readText}>✓ прочитано 24</Text>
+            <Text style={styles.readText}>{isPending ? '⏳' : '✓ прочитано 24'}</Text>
           </View>
         </View>
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   msgRow: {
@@ -266,5 +274,8 @@ const styles = StyleSheet.create({
   correctionTag: {
     fontSize: 9, fontFamily: FONTS.mono, color: COLORS.amber,
     textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6,
+  },
+  pendingBubble: {
+    opacity: 0.6,
   },
 });

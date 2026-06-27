@@ -68,7 +68,14 @@ export const useWebSocketStore = create<WebSocketState>()((set, get) => ({
 
       // Код 4003 — проблема с токеном, пробуем обновить через HTTP
       if (e.code === 4003) {
-        api.users.me().catch(() => useAuthStore.getState().logout());
+        api.users.me()
+          .then(() => {
+            const currentToken = useAuthStore.getState().accessToken;
+            if (currentToken) {
+              get().connect(currentToken);
+            }
+          })
+          .catch(() => useAuthStore.getState().logout());
         return;
       }
 

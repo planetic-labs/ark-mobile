@@ -16,6 +16,8 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { COLORS, FONTS } from '../../constants/Config';
 import { authStyles } from '../../constants/authStyles';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // Первый шаг авторизации: ввод email.
 // После успешного запроса кода сохраняет email в store и переходит на /code.
 export default function AuthIndexScreen(): React.ReactElement {
@@ -28,6 +30,11 @@ export default function AuthIndexScreen(): React.ReactElement {
   const handleRequestCode = async (): Promise<void> => {
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) return;
+
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      Alert.alert('Некорректный email', 'Пожалуйста, введите правильный адрес электронной почты.');
+      return;
+    }
 
     setIsLoading(true);
     try {

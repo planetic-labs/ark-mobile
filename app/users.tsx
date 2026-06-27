@@ -101,6 +101,7 @@ export default function UsersScreen() {
             <TouchableOpacity 
               style={styles.userItem}
               onPress={() => chatMutation.mutate(item.id)}
+              disabled={chatMutation.isPending}
             >
               <View style={[styles.avatar, isWarrior && styles.avatarWarrior]}>
                 <Text style={[styles.avatarText, isWarrior && styles.avatarTextWarrior]}>

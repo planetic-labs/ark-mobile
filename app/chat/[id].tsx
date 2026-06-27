@@ -16,7 +16,8 @@ import { TouchableOpacity, Text } from 'react-native';
 import { api } from '../../services/api';
 import { COLORS } from '../../constants/Config';
 import { useWebSocket } from '../../hooks/useWebSocket';
-import { enqueueMessage } from '../../services/offlineQueue';
+import { enqueueMessage, getPendingMessagesForChat } from '../../services/offlineQueue';
+import { useAuthStore } from '../../stores/useAuthStore';
 import {
   MessageBubble,
   ReportCard,
@@ -91,7 +92,10 @@ export default function ChatScreen(): React.ReactElement {
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => setKeyboardVisible(false)
     );
-    return () => { show.remove(); hide.remove(); };
+    return () => {
+      show.remove();
+      hide.remove();
+    };
   }, []);
 
   const { data: messages, isLoading } = useQuery({
@@ -100,14 +104,34 @@ export default function ChatScreen(): React.ReactElement {
     enabled: !!id && id !== 'undefined',
   });
 
+  const { data: pendingMessages } = useQuery({
+    queryKey: ['pendingMessages', id],
+    queryFn: () => getPendingMessagesForChat(id as string),
+    initialData: () => getPendingMessagesForChat(id as string),
+    enabled: !!id && id !== 'undefined',
+  });
+
+  const combinedMessages = useMemo(() => {
+    const serverMsgs = messages || [];
+    const localMsgs: Message[] = (pendingMessages || []).map((pm) => ({
+      id: pm.localId,
+      chat_id: pm.chatId,
+      sender_id: useAuthStore.getState().currentUser?.id || 'me',
+      content: pm.content,
+      parent_id: null,
+      created_at: pm.createdAt,
+    }));
+    return [...serverMsgs, ...localMsgs];
+  }, [messages, pendingMessages]);
+
   useEffect(() => {
-    if (messages && messages.length > 0) {
+    if (combinedMessages && combinedMessages.length > 0) {
       const timer = setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: false });
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [messages?.length]);
+  }, [combinedMessages.length]);
 
   const { data: users } = useQuery({
     queryKey: ['users'],
@@ -123,21 +147,58 @@ export default function ChatScreen(): React.ReactElement {
   const currentChat = chats?.find((c) => c.id === id);
 
   const sendMutation = useMutation({
-    mutationFn: () => api.messaging.sendMessage(id as string, content),
-    onSuccess: () => {
-      setContent('');
+    mutationFn: (text: string) => api.messaging.sendMessage(id as string, text),
+    onMutate: async (newText) => {
+      // Отменяем исходящие рефетчи, чтобы они не перезаписали наш оптимистичный апдейт
+      await queryClient.cancelQueries({ queryKey: ['messages', id] });
+
+      // Сохраняем предыдущее состояние
+      const previousMessages = queryClient.getQueryData<Message[]>(['messages', id]);
+
+      // Создаем временное сообщение
+      const tempId = `temp_${Date.now()}`;
+      const tempMessage: Message = {
+        id: tempId,
+        chat_id: id as string,
+        sender_id: useAuthStore.getState().currentUser?.id || 'me',
+        content: newText,
+        parent_id: null,
+        created_at: new Date().toISOString(),
+      };
+
+      // Оптимистично добавляем сообщение в кэш
+      queryClient.setQueryData<Message[]>(['messages', id], (old) => {
+        if (!old) return [tempMessage];
+        return [...old, tempMessage];
+      });
+
+      return { previousMessages, tempId };
+    },
+    onSuccess: (data, variables, context) => {
+      // Заменяем временное сообщение на реальное в кэше
+      queryClient.setQueryData<Message[]>(['messages', id], (old) => {
+        if (!old) return [data];
+        return old.map((m) => (m.id === context?.tempId ? data : m));
+      });
+      // Инвалидируем для синхронизации
       queryClient.invalidateQueries({ queryKey: ['messages', id] });
     },
-    onError: () => {
-      // Нет сети — сохраняем в офлайн-очередь
-      enqueueMessage(id as string, content);
-      setContent('');
+    onError: (err, variables, context) => {
+      // При ошибке (нет сети) восстанавливаем предыдущие сообщения
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['messages', id], context.previousMessages);
+      }
+      // И кладем в оффлайн очередь
+      enqueueMessage(id as string, variables);
+      queryClient.invalidateQueries({ queryKey: ['pendingMessages', id] });
     },
   });
 
   const handleSend = useCallback((): void => {
-    if (!content.trim() || sendMutation.isPending) return;
-    sendMutation.mutate();
+    const textToSend = content.trim();
+    if (!textToSend || sendMutation.isPending) return;
+    setContent('');
+    sendMutation.mutate(textToSend);
   }, [content, sendMutation]);
 
   const getSenderDeco = useCallback((senderId: string): SenderDeco => {
@@ -169,6 +230,7 @@ export default function ChatScreen(): React.ReactElement {
     const text = item.content || '';
     const time = new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const date = new Date(item.created_at).toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    const isPending = item.id.startsWith('local_') || item.id.startsWith('temp_');
 
     if (text.includes('скриншот')) {
       return (
@@ -189,17 +251,18 @@ export default function ChatScreen(): React.ReactElement {
           reactions={reactions[item.id] ?? DEFAULT_REACTION}
           onToggleStudied={() => setStudiedReports((p) => ({ ...p, [item.id]: !p[item.id] }))}
           onToggleReaction={(type) => toggleReaction(item.id, type)}
+          isPending={isPending}
         />
       );
     }
 
-    const isCorrection = sender.isWarrior && index > 0 && isReportFormat(messages?.[index - 1]?.content ?? '');
+    const isCorrection = sender.isWarrior && index > 0 && isReportFormat(combinedMessages[index - 1]?.content ?? '');
     if (isCorrection) {
-      return <CorrectionBubble content={text} formattedTime={time} sender={sender} />;
+      return <CorrectionBubble content={text} formattedTime={time} sender={sender} isPending={isPending} />;
     }
 
-    return <MessageBubble content={text} formattedTime={time} sender={sender} />;
-  }, [getSenderDeco, studiedReports, reactions, messages, toggleReaction]);
+    return <MessageBubble content={text} formattedTime={time} sender={sender} isPending={isPending} />;
+  }, [getSenderDeco, studiedReports, reactions, combinedMessages, toggleReaction]);
 
   const bottomPadding = isKeyboardVisible ? 10 : Math.max(insets.bottom, Platform.OS === 'android' ? 15 : 0);
 
@@ -234,7 +297,7 @@ export default function ChatScreen(): React.ReactElement {
         ) : (
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={combinedMessages}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"

@@ -6,6 +6,7 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { COLORS } from '../../constants/Config';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { settingsStyles as styles } from '../../styles/settingsStyles';
 
@@ -84,6 +85,7 @@ const ChevronRight = ({ color }: { color: string }) => (
 export default function SettingsScreen() {
   const currentUser = useAuthStore((state) => state.currentUser);
   const logout = useAuthStore((state) => state.logout);
+  const queryClient = useQueryClient();
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
@@ -129,6 +131,7 @@ export default function SettingsScreen() {
           text: "Очистить",
           style: "destructive",
           onPress: () => {
+            queryClient.clear();
             Alert.alert("Успешно", "Кэш приложения успешно очищен.");
           }
         }

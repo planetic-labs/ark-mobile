@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity } from 'react-native';
 import { chroniclesStyles as styles } from '../../styles/chroniclesStyles';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS, FONTS } from '../../constants/Config';
@@ -128,9 +128,13 @@ export default function ChroniclesScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {filteredItems.map((item) => (
-          <View key={item.id} style={styles.chronicleCard}>
+      <FlatList
+        data={filteredItems}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <View style={styles.chronicleCard}>
             
             {/* Card Header */}
             <View style={styles.cardHeader}>
@@ -197,11 +201,11 @@ export default function ChroniclesScreen() {
             </View>
 
           </View>
-        ))}
-        {filteredItems.length === 0 && (
-          <Text style={styles.emptyText}>Ничего не найдено</Text>
         )}
-      </ScrollView>
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>Ничего не найдено</Text>
+        }
+      />
     </View>
   );
 }

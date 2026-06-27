@@ -27,7 +27,10 @@ export function useOfflineQueue(): void {
     isFlushing.current = true;
     try {
       for (const msg of pending) {
-        await sendPendingMessage(msg, queryClient);
+        const success = await sendPendingMessage(msg, queryClient);
+        if (!success) {
+          break; // Прерываем отправку при первой же ошибке (сеть пропала)
+        }
       }
     } finally {
       isFlushing.current = false;
@@ -65,16 +68,19 @@ export function useOfflineQueue(): void {
 async function sendPendingMessage(
   msg: PendingMessage,
   queryClient: ReturnType<typeof useQueryClient>
-): Promise<void> {
+): Promise<boolean> {
   try {
     const sent = await api.messaging.sendMessage(msg.chatId, msg.content);
     dequeueMessage(msg.localId);
     // Инвалидируем кэш чата после успешной отправки
     queryClient.invalidateQueries({ queryKey: ['messages', msg.chatId] });
+    queryClient.invalidateQueries({ queryKey: ['pendingMessages', msg.chatId] });
     queryClient.invalidateQueries({ queryKey: ['chats'] });
     console.log(`[OfflineQueue] Отправлено сообщение ${sent.id} из чата ${msg.chatId}`);
+    return true;
   } catch (error) {
     // Не удалось отправить — оставляем в очереди, попробуем позже
     console.warn(`[OfflineQueue] Не удалось отправить ${msg.localId}:`, error);
+    return false;
   }
 }

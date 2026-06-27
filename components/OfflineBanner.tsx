@@ -13,7 +13,7 @@ import { COLORS, FONTS } from '../constants/Config';
 export function OfflineBanner(): React.ReactElement | null {
   const isVisible = useUIStore((s) => s.isOfflineBannerVisible);
   const setVisible = useUIStore((s) => s.setOfflineBannerVisible);
-  const translateY = useSharedValue(60);
+  const translateY = useSharedValue(100);
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -24,17 +24,15 @@ export function OfflineBanner(): React.ReactElement | null {
   }, [setVisible]);
 
   useEffect(() => {
-    translateY.value = withTiming(isVisible ? 0 : 60, { duration: 280 });
+    translateY.value = withTiming(isVisible ? 0 : 100, { duration: 280 });
   }, [isVisible, translateY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
 
-  if (!isVisible) return null;
-
   return (
-    <Animated.View style={[styles.container, animatedStyle]}>
+    <Animated.View style={[styles.container, animatedStyle]} pointerEvents={isVisible ? 'auto' : 'none'}>
       <View style={styles.dot} />
       <Text style={styles.text}>Нет соединения · работаем из кэша</Text>
     </Animated.View>
