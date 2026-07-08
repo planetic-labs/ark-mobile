@@ -1,2 +1,4 @@
 .gitignore
 .easignore
+update-version.json
+**/update-version.json
