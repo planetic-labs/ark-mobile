@@ -9,6 +9,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { settingsStyles as styles } from '../../styles/settingsStyles';
+import { useTimerStore } from '../../stores/useTimerStore';
 
 // SVG Icons for Menu Items
 const BellIcon = ({ color }: { color: string }) => (
@@ -70,6 +71,13 @@ const LogOutIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
+const TimerIcon = ({ color }: { color: string }) => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={1.8} />
+    <Path d="M12 6v6l4 2" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
 const ChevronRight = ({ color }: { color: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path
@@ -89,6 +97,18 @@ export default function SettingsScreen() {
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
+  const [mode, setMode] = useState<'menu' | 'timer'>('menu');
+
+  // Таймер стейт из Zustand
+  const duration = useTimerStore((state) => state.duration);
+  const sound = useTimerStore((state) => state.sound);
+  const isActive = useTimerStore((state) => state.isActive);
+  const timeLeft = useTimerStore((state) => state.timeLeft);
+  const setDuration = useTimerStore((state) => state.setDuration);
+  const setSound = useTimerStore((state) => state.setSound);
+  const startTimer = useTimerStore((state) => state.startTimer);
+  const stopTimer = useTimerStore((state) => state.stopTimer);
+  const resetTimer = useTimerStore((state) => state.resetTimer);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -165,6 +185,103 @@ export default function SettingsScreen() {
     return `${branch}-${pkgVersion}-${timeStr}`;
   };
 
+  if (mode === 'timer') {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const options = [1, 5, 10, 15, 20, 30];
+
+    return (
+      <View style={styles.container}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+          <View style={styles.subHeader}>
+            <TouchableOpacity onPress={() => setMode('menu')} style={styles.backButton}>
+              <Text style={styles.backButtonText}>← Настройки</Text>
+            </TouchableOpacity>
+            <Text style={styles.subHeaderTitle}>Таймер практики</Text>
+          </View>
+
+          {/* Циферблат */}
+          <View style={styles.timerDisplay}>
+            <Text style={styles.timerDigits}>{timeStr}</Text>
+            <Text style={styles.timerLabel}>
+              {isActive ? 'Идет медитация...' : 'Таймер готов к запуску'}
+            </Text>
+          </View>
+
+          {/* Кнопки управления */}
+          <View style={styles.controlsRow}>
+            {isActive ? (
+              <TouchableOpacity style={[styles.btnControl, styles.btnPause]} onPress={stopTimer}>
+                <Text style={styles.btnTextPause}>Пауза</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={[styles.btnControl, styles.btnStart]} onPress={startTimer}>
+                <Text style={styles.btnTextStart}>Старт</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={[styles.btnControl, styles.btnReset]} onPress={resetTimer}>
+              <Text style={styles.btnTextReset}>Сбросить</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Настройка времени */}
+          <Text style={styles.chipsTitle}>Длительность практики</Text>
+          <View style={styles.chipsContainer}>
+            {options.map((mins) => {
+              const secs = mins * 60;
+              const isSelected = duration === secs;
+              return (
+                <TouchableOpacity
+                  key={mins}
+                  style={[styles.chip, isSelected && styles.chipActive]}
+                  onPress={() => !isActive && setDuration(secs)}
+                  disabled={isActive}
+                  activeOpacity={isActive ? 1 : 0.7}
+                >
+                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                    {mins} мин
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Настройка звука */}
+          <Text style={styles.chipsTitle}>Звук завершения</Text>
+          <View style={styles.soundContainer}>
+            <TouchableOpacity
+              style={styles.soundOption}
+              onPress={() => !isActive && setSound('siren_satsang')}
+              disabled={isActive}
+              activeOpacity={isActive ? 1 : 0.7}
+            >
+              <View style={[styles.soundRadio, sound === 'siren_satsang' && styles.soundRadioActive]}>
+                {sound === 'siren_satsang' && <View style={styles.soundRadioInner} />}
+              </View>
+              <Text style={[styles.soundOptionText, sound === 'siren_satsang' && styles.soundOptionTextActive]}>
+                Сирена Сатсанга
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.soundOption, styles.soundOptionLast]}
+              onPress={() => !isActive && setSound('siren_warrior')}
+              disabled={isActive}
+              activeOpacity={isActive ? 1 : 0.7}
+            >
+              <View style={[styles.soundRadio, sound === 'siren_warrior' && styles.soundRadioActive]}>
+                {sound === 'siren_warrior' && <View style={styles.soundRadioInner} />}
+              </View>
+              <Text style={[styles.soundOptionText, sound === 'siren_warrior' && styles.soundOptionTextActive]}>
+                Сирена Воина
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
@@ -212,6 +329,18 @@ export default function SettingsScreen() {
               thumbColor={soundsEnabled ? COLORS.amber : '#A69D8F'}
             />
           </View>
+        </View>
+
+        {/* Practice Group */}
+        <Text style={styles.sectionTitle}>Практика</Text>
+        <View style={styles.menuGroup}>
+          <TouchableOpacity style={[styles.menuItem, styles.menuItemLast]} onPress={() => setMode('timer')}>
+            <View style={styles.menuItemLeft}>
+              <TimerIcon color={COLORS.amber} />
+              <Text style={styles.menuItemText}>Таймер практики</Text>
+            </View>
+            <ChevronRight color={COLORS.textMuted} />
+          </TouchableOpacity>
         </View>
 
         {/* Actions Group */}

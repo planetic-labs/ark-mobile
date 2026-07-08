@@ -1,5 +1,6 @@
 import { createMMKV } from 'react-native-mmkv';
 import type { MMKV } from 'react-native-mmkv';
+import { Observe } from 'expo-observe';
 
 // Отдельное MMKV-хранилище для офлайн-очереди сообщений
 const queueStorage: MMKV = createMMKV({ id: 'offline-queue' });
@@ -25,7 +26,18 @@ function readQueue(): PendingMessage[] {
 }
 
 function writeQueue(queue: PendingMessage[]): void {
-  queueStorage.set(QUEUE_KEY, JSON.stringify(queue));
+  try {
+    queueStorage.set(QUEUE_KEY, JSON.stringify(queue));
+  } catch (error) {
+    Observe.logEvent('offline_queue.write_failed', {
+      severity: 'fatal',
+      attributes: {
+        error: String(error),
+        queueLength: queue.length,
+      },
+    });
+    console.error('[OfflineQueue] Failed to write queue to MMKV:', error);
+  }
 }
 
 /** Добавляет сообщение в конец очереди */

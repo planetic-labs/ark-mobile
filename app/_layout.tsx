@@ -5,7 +5,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useFonts } from 'expo-font';
 import { ActivityIndicator, View } from 'react-native';
-import { ObserveRoot, useObserve } from 'expo-observe';
+import { ObserveRoot, useObserve, Observe } from 'expo-observe';
+
+Observe.configure({
+  integrations: { 'expo-router': true },
+});
+
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
 import { OfflineBanner } from '../components/OfflineBanner';
 import {
@@ -42,6 +47,8 @@ const queryClient = new QueryClient({
   },
 });
 
+import { TimerManager } from '../components/TimerManager';
+
 // AppContent находится внутри QueryClientProvider — имеет доступ к useQueryClient
 function AppContent(): React.ReactElement {
   useOfflineQueue();
@@ -73,6 +80,7 @@ function AppContent(): React.ReactElement {
         }}
       />
       </Stack>
+      <TimerManager />
       <OfflineBanner />
     </View>
   );

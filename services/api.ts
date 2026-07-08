@@ -11,6 +11,7 @@ import {
   CreateUserRequest,
   FastApiValidationErrorItem,
 } from '../types/shared';
+import { Observe } from 'expo-observe';
 
 // Разбирает тело ошибки от FastAPI и возвращает читаемую строку
 function parseErrorMessage(status: number, statusText: string, text: string): string {
@@ -56,7 +57,22 @@ async function request<T>(
   }
   headers.set('Content-Type', 'application/json');
 
-  let response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  const startTime = Date.now();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  } catch (netError) {
+    Observe.logEvent('api.request_failed', {
+      severity: 'error',
+      attributes: {
+        endpoint: path,
+        method: options.method || 'GET',
+        error: String(netError),
+        durationMs: Date.now() - startTime,
+      },
+    });
+    throw netError;
+  }
 
   // Прозрачное обновление токена при 401 (кроме auth-эндпоинтов и ручных токенов)
   const isAuthPath = path.startsWith('/auth');
@@ -89,14 +105,34 @@ async function request<T>(
       const newAccessToken = await refreshPromise;
       headers.set('Authorization', `Bearer ${newAccessToken}`);
       response = await fetch(`${API_URL}${path}`, { ...options, headers });
-    } catch {
+    } catch (refreshError) {
+      Observe.logEvent('auth.token_refresh_failed', {
+        severity: 'error',
+        attributes: {
+          error: String(refreshError),
+        },
+      });
       logout();
     }
   }
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(parseErrorMessage(response.status, response.statusText, text));
+    const errorMessage = parseErrorMessage(response.status, response.statusText, text);
+
+    Observe.logEvent('api.request_failed', {
+      severity: 'error',
+      attributes: {
+        endpoint: path,
+        method: options.method || 'GET',
+        statusCode: response.status,
+        statusText: response.statusText,
+        error: errorMessage,
+        durationMs: Date.now() - startTime,
+      },
+    });
+
+    throw new Error(errorMessage);
   }
 
   return response.json() as Promise<T>;

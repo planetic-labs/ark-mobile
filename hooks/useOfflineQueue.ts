@@ -9,6 +9,7 @@ import {
   type PendingMessage,
 } from '../services/offlineQueue';
 import { useAuthStore } from '../stores/useAuthStore';
+import { Observe } from 'expo-observe';
 
 // Хук запускает фоновую отправку накопленных офлайн-сообщений при восстановлении сети.
 // Вызывается один раз на уровне layout (не в каждом экране).
@@ -80,6 +81,14 @@ async function sendPendingMessage(
     return true;
   } catch (error) {
     // Не удалось отправить — оставляем в очереди, попробуем позже
+    Observe.logEvent('offline_queue.sync_failed', {
+      severity: 'error',
+      attributes: {
+        chatId: msg.chatId,
+        localId: msg.localId,
+        error: String(error),
+      },
+    });
     console.warn(`[OfflineQueue] Не удалось отправить ${msg.localId}:`, error);
     return false;
   }

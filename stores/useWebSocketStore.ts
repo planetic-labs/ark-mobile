@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { api } from '../services/api';
 import { useAuthStore } from './useAuthStore';
 import type { WebSocketEvent } from '../types/shared';
+import { Observe } from 'expo-observe';
 
 // Параметры exponential backoff (1с → 2с → 4с → … → 30с)
 const BACKOFF_INITIAL_MS = 1_000;
@@ -66,6 +67,22 @@ export const useWebSocketStore = create<WebSocketState>()((set, get) => ({
     ws.onclose = (e: CloseEvent): void => {
       set({ isConnected: false, _socket: null });
 
+      const attempt = get()._attempt;
+      const delay = nextBackoffDelay(attempt);
+
+      // Логируем ненормальное закрытие (код 1000 — нормальное закрытие)
+      if (e.code !== 1000) {
+        Observe.logEvent('websocket.closed_abnormally', {
+          severity: 'warn',
+          attributes: {
+            code: e.code,
+            reason: e.reason || 'No reason provided',
+            attempt,
+            nextDelayMs: delay,
+          },
+        });
+      }
+
       // Код 4003 — проблема с токеном, пробуем обновить через HTTP
       if (e.code === 4003) {
         api.users.me()
@@ -80,8 +97,6 @@ export const useWebSocketStore = create<WebSocketState>()((set, get) => ({
       }
 
       // Exponential backoff реконнект
-      const attempt = get()._attempt;
-      const delay = nextBackoffDelay(attempt);
       const timeout = setTimeout(() => {
         const currentToken = useAuthStore.getState().accessToken;
         if (currentToken) get().connect(currentToken);
@@ -91,8 +106,14 @@ export const useWebSocketStore = create<WebSocketState>()((set, get) => ({
     };
 
     ws.onerror = (): void => {
-      // Ошибки WebSocket всегда сопровождаются onclose — логируем минимально
       console.error('[WS] Ошибка соединения');
+      const attempt = get()._attempt;
+      Observe.logEvent('websocket.connection_failed', {
+        severity: 'error',
+        attributes: {
+          attempt,
+        },
+      });
     };
 
     set({ _socket: ws });

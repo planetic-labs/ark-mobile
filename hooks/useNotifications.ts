@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { Alert, Platform } from 'react-native';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
+import { Observe } from 'expo-observe';
 
 // Expo SDK 56: shouldShowBanner и shouldShowList обязательны в NotificationBehavior
 Notifications.setNotificationHandler({
@@ -61,6 +62,9 @@ export function useNotifications(): UseNotificationsResult {
 
       if (finalStatus !== 'granted') {
         console.log('[Notifications] Разрешение не получено');
+        Observe.logEvent('push.permission_denied', {
+          severity: 'warn',
+        });
         return;
       }
 
@@ -98,6 +102,12 @@ export function useNotifications(): UseNotificationsResult {
       }
     } catch (error) {
       console.error('[Notifications] Ошибка регистрации push-токена:', error);
+      Observe.logEvent('push.registration_failed', {
+        severity: 'error',
+        attributes: {
+          error: String(error),
+        },
+      });
     }
   };
 
