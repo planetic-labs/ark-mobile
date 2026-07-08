@@ -110,12 +110,33 @@ async function run() {
   try {
     const pkgPath = path.join(__dirname, '..', 'package.json');
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    const currentVersion = pkg.version || '';
+    
     const d = new Date();
     const pad = (num) => String(num).padStart(2, '0');
-    newVersion = `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+    const todayPrefix = `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+
+    if (currentVersion.startsWith(todayPrefix)) {
+      const suffix = currentVersion.slice(todayPrefix.length);
+      if (suffix === '') {
+        newVersion = `${todayPrefix}.1`;
+      } else if (suffix.startsWith('.')) {
+        const num = parseInt(suffix.slice(1), 10);
+        if (!isNaN(num)) {
+          newVersion = `${todayPrefix}.${num + 1}`;
+        } else {
+          newVersion = `${todayPrefix}.1`;
+        }
+      } else {
+        newVersion = `${todayPrefix}.1`;
+      }
+    } else {
+      newVersion = todayPrefix;
+    }
+
     pkg.version = newVersion;
     fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
-    console.log(`Обновлена версия в package.json: ${newVersion}`);
+    console.log(`Обновлена версия в package.json: ${currentVersion} -> ${newVersion}`);
   } catch (e) {
     console.error('Не удалось обновить версию в package.json:', e.message);
   }

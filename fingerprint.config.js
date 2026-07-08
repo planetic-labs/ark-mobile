@@ -2,5 +2,5 @@ const { SourceSkips } = require('@expo/fingerprint');
 
 /** @type {import('@expo/fingerprint').Config} */
 module.exports = {
-  sourceSkips: SourceSkips.ExpoConfigVersions,
+  sourceSkips: SourceSkips.ExpoConfigVersions | SourceSkips.PackageJsonScriptsAll,
 };
