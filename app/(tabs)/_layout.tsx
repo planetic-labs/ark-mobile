@@ -62,11 +62,25 @@ const SettingsIcon = ({ color }: { color: ColorValue }) => (
   </Svg>
 );
 
+const AdminIcon = ({ color }: { color: ColorValue }) => (
+  <Svg width={23} height={23} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+      stroke={color}
+      strokeWidth={1.7}
+      strokeLinejoin="round"
+    />
+    <Circle cx={12} cy={11} r={3} stroke={color} strokeWidth={1.7} />
+  </Svg>
+);
+
 export default function TabsLayout() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const logout = useAuthStore((state) => state.logout);
+  const currentUser = useAuthStore((state) => state.currentUser);
   const insets = useSafeAreaInsets();
   const { registerForPushNotifications } = useNotifications();
+  const isAdmin = currentUser?.role === 'ADMIN';
 
   useWebSocket();
 
@@ -139,21 +153,44 @@ export default function TabsLayout() {
         if (route.name === 'video') return <VideoIcon color={color} />;
         if (route.name === 'materials') return <MaterialsIcon color={color} />;
         if (route.name === 'chronicles') return <ChroniclesIcon color={color} />;
+        if (route.name === 'admin') return <AdminIcon color={color} />;
         if (route.name === 'settings') return <SettingsIcon color={color} />;
         return null;
       }
     })}>
       <Tabs.Screen 
-        name="index" 
+        name="navigator" 
         options={{ 
-          title: 'Чаты',
+          title: 'Навигатор',
           headerShown: true,
         }} 
       />
       <Tabs.Screen 
-        name="navigator" 
+        name="index" 
         options={{ 
-          title: 'Навигатор',
+          title: 'Чат',
+          headerShown: true,
+        }} 
+      />
+      <Tabs.Screen 
+        name="materials" 
+        options={{ 
+          title: 'Материалы',
+          headerShown: true,
+        }} 
+      />
+      <Tabs.Screen 
+        name="admin" 
+        options={{ 
+          title: 'Админка',
+          headerShown: true,
+          href: isAdmin ? undefined : null,
+        }} 
+      />
+      <Tabs.Screen 
+        name="settings" 
+        options={{ 
+          title: 'Настройки',
           headerShown: true,
         }} 
       />
@@ -166,25 +203,11 @@ export default function TabsLayout() {
         }} 
       />
       <Tabs.Screen 
-        name="materials" 
-        options={{ 
-          title: 'Материалы',
-          headerShown: true,
-        }} 
-      />
-      <Tabs.Screen 
         name="chronicles" 
         options={{ 
           title: 'Летописи',
           headerShown: true,
           href: null,
-        }} 
-      />
-      <Tabs.Screen 
-        name="settings" 
-        options={{ 
-          title: 'Настройки',
-          headerShown: true,
         }} 
       />
     </Tabs>

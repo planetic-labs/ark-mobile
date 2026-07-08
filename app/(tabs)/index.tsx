@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, Tabs } from 'expo-router';
 import { api } from '../../services/api';
 import { COLORS } from '../../constants/Config';
 import { getChatDecoration } from '../../constants/chatDecorations';
 import { chatListStyles as styles } from '../../styles/chatListStyles';
 import { useObserve } from 'expo-observe';
+import Svg, { Path } from 'react-native-svg';
 
 const TABS = ['Мастер', 'Основные', 'Воины', 'Команда', 'Ретрит'] as const;
 
@@ -66,6 +67,21 @@ export default function ChatListScreen(): React.ReactElement {
 
   return (
     <View style={styles.container}>
+      <Tabs.Screen
+        options={{
+          headerTitle: 'Чат',
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => router.push('/users')}
+              style={{ marginRight: 15, padding: 5 }}
+            >
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Path d="M12 5v14M5 12h14" stroke={COLORS.amber} strokeWidth={2} strokeLinecap="round" />
+              </Svg>
+            </TouchableOpacity>
+          )
+        }}
+      />
       <FlatList
         data={filteredChats}
         keyExtractor={(item) => item.id}

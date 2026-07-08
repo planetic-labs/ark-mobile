@@ -25,28 +25,7 @@ const BellIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
-const UsersIcon = ({ color }: { color: string }) => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Circle cx={9} cy={7.5} r={3} stroke={color} strokeWidth={1.8} fill="none" />
-    <Path
-      d="M4 16c0-2.5 2-4.5 5-4.5s5 2 5 4.5"
-      stroke={color}
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      fill="none"
-    />
-    <Circle cx={15} cy={6.5} r={2.2} stroke={color} strokeWidth={1.8} fill="none" />
-    <Path
-      d="M12 14c0-1.8 1-3 3-3s3 1.2 3 3"
-      stroke={color}
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      fill="none"
-    />
-  </Svg>
-);
+
 
 const TrashIcon = ({ color }: { color: string }) => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -352,13 +331,6 @@ export default function SettingsScreen() {
         {/* Actions Group */}
         <Text style={styles.sectionTitle}>Действия</Text>
         <View style={styles.menuGroup}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/users')}>
-            <View style={styles.menuItemLeft}>
-              <UsersIcon color={COLORS.textSecondary} />
-              <Text style={styles.menuItemText}>Список участников</Text>
-            </View>
-            <ChevronRight color={COLORS.textMuted} />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={handleClearCache}>
             <View style={styles.menuItemLeft}>
               <TrashIcon color={COLORS.textSecondary} />

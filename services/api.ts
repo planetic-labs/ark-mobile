@@ -191,6 +191,17 @@ export const api = {
         body: JSON.stringify(userData),
       }),
 
+    update: (userId: string, userData: Partial<CreateUserRequest> & { is_approved?: boolean; is_active?: boolean }): Promise<CurrentUser> =>
+      request<CurrentUser>(`/users/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(userData),
+      }),
+
+    delete: (userId: string): Promise<CurrentUser> =>
+      request<CurrentUser>(`/users/${userId}`, {
+        method: 'DELETE',
+      }),
+
     registerPushToken: (pushToken: string): Promise<MsgResponse> =>
       request<MsgResponse>('/users/me/push-token', {
         method: 'POST',
