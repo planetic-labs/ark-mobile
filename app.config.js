@@ -1,4 +1,10 @@
 const packageJson = require('./package.json');
+let updateVersion = '2026.07.08';
+try {
+  updateVersion = require('./update-version.json').updateVersion;
+} catch (e) {
+  // На случай, если файла нет локально
+}
 
 module.exports = ({ config }) => {
   const isProd = process.env.APP_ENV === 'production';
@@ -43,7 +49,8 @@ module.exports = ({ config }) => {
       eas: {
         projectId: "2f1240a1-b669-41d1-98b2-647a16cf399f"
       },
-      router: {}
+      router: {},
+      updateVersion,
     },
     scheme: "ark-messenger",
     plugins: [

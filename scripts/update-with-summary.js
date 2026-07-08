@@ -106,11 +106,15 @@ async function generateSummary() {
 
 async function run() {
   let newVersion = '';
-  // Обновляем версию в package.json перед сборкой
+  // Обновляем версию в update-version.json перед сборкой
   try {
-    const pkgPath = path.join(__dirname, '..', 'package.json');
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    const currentVersion = pkg.version || '';
+    const updatePath = path.join(__dirname, '..', 'update-version.json');
+    let currentVersion = '';
+    let updateData = { updateVersion: '' };
+    if (fs.existsSync(updatePath)) {
+      updateData = JSON.parse(fs.readFileSync(updatePath, 'utf8'));
+      currentVersion = updateData.updateVersion || '';
+    }
     
     const d = new Date();
     const pad = (num) => String(num).padStart(2, '0');
@@ -134,11 +138,11 @@ async function run() {
       newVersion = todayPrefix;
     }
 
-    pkg.version = newVersion;
-    fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
-    console.log(`Обновлена версия в package.json: ${currentVersion} -> ${newVersion}`);
+    updateData.updateVersion = newVersion;
+    fs.writeFileSync(updatePath, JSON.stringify(updateData, null, 2) + '\n');
+    console.log(`Обновлена версия OTA-обновления в update-version.json: ${currentVersion} -> ${newVersion}`);
   } catch (e) {
-    console.error('Не удалось обновить версию в package.json:', e.message);
+    console.error('Не удалось обновить версию в update-version.json:', e.message);
   }
 
   console.log('Генерируем саммари изменений через Gemini API...');
@@ -154,11 +158,11 @@ async function run() {
   
   if (child.status === 0) {
     try {
-      console.log('\nДобавляем package.json в коммит...');
-      execSync('git add package.json', { stdio: 'inherit' });
+      console.log('\nДобавляем update-version.json в коммит...');
+      execSync('git add update-version.json', { stdio: 'inherit' });
       
       console.log('Создаем коммит с обновлением версии...');
-      execSync(`git commit -m "chore: bump version to ${newVersion}"`, { stdio: 'inherit' });
+      execSync(`git commit -m "chore: bump OTA update version to ${newVersion}"`, { stdio: 'inherit' });
       
       console.log('Пушим коммит в удаленный репозиторий...');
       execSync('git push origin HEAD', { stdio: 'inherit' });

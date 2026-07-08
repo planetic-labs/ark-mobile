@@ -4,35 +4,21 @@ const path = require('path');
 const pkgPath = path.join(__dirname, '../package.json');
 const pkg = require(pkgPath);
 
-const d = new Date();
-const year = d.getFullYear();
-const month = String(d.getMonth() + 1).padStart(2, '0');
-const day = String(d.getDate()).padStart(2, '0');
-const todayPrefix = `${year}.${month}.${day}`;
+const currentVersion = pkg.version || '0.0.1';
+const parts = currentVersion.split('.');
 
-const currentVersion = pkg.version || '';
-
-let newVersion;
-if (currentVersion.startsWith(todayPrefix)) {
-  // Версия уже сегодняшняя. Проверим, есть ли суффикс
-  const suffix = currentVersion.slice(todayPrefix.length); // Будет пустой строкой или ".X"
-  if (suffix === '') {
-    newVersion = `${todayPrefix}.1`;
-  } else if (suffix.startsWith('.')) {
-    const num = parseInt(suffix.slice(1), 10);
-    if (!isNaN(num)) {
-      newVersion = `${todayPrefix}.${num + 1}`;
-    } else {
-      newVersion = `${todayPrefix}.1`;
-    }
-  } else {
-    newVersion = `${todayPrefix}.1`;
+let newVersion = '0.0.1';
+if (parts.length === 3) {
+  const major = parseInt(parts[0], 10);
+  const minor = parseInt(parts[1], 10);
+  const patch = parseInt(parts[2], 10);
+  if (!isNaN(major) && !isNaN(minor) && !isNaN(patch)) {
+    newVersion = `${major}.${minor}.${patch + 1}`;
   }
 } else {
-  // Дата изменилась или версия старая — сбрасываем на чистую сегодняшнюю дату
-  newVersion = todayPrefix;
+  newVersion = '0.0.1';
 }
 
 pkg.version = newVersion;
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
-console.log(`Version updated: ${currentVersion} -> ${newVersion}`);
+console.log(`Native build version updated: ${currentVersion} -> ${newVersion}`);
