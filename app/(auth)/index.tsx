@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { COLORS, FONTS } from '../../constants/Config';
 import { authStyles } from '../../constants/authStyles';
+import { useObserve } from 'expo-observe';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -26,6 +27,11 @@ export default function AuthIndexScreen(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
 
   const setPendingEmail = useAuthStore((state) => state.setPendingEmail);
+  const { markInteractive } = useObserve();
+
+  useEffect(() => {
+    markInteractive();
+  }, [markInteractive]);
 
   const handleRequestCode = async (): Promise<void> => {
     const trimmedEmail = email.trim().toLowerCase();

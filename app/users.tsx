@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput, Platform } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -8,12 +8,14 @@ import { router } from 'expo-router';
 import { useAuthStore } from '../stores/useAuthStore';
 import { type User, type Chat } from '../types/shared';
 import { usersStyles as styles } from '../styles/usersStyles';
+import { useObserve } from 'expo-observe';
 
 type RoleType = 'STUDENT' | 'WARRIOR' | 'MASTER' | 'ADMIN';
 
 export default function UsersScreen() {
   const currentUser = useAuthStore((state) => state.currentUser);
   const queryClient = useQueryClient();
+  const { markInteractive } = useObserve();
   
   // Modal state
   const [isModalVisible, setModalVisible] = useState(false);
@@ -25,6 +27,12 @@ export default function UsersScreen() {
     queryKey: ['users'],
     queryFn: api.users.listAll,
   });
+
+  useEffect(() => {
+    if (!isLoading) {
+      markInteractive();
+    }
+  }, [isLoading, markInteractive]);
 
   const chatMutation = useMutation<Chat, Error, string>({
     mutationFn: (userId: string) => api.messaging.createChat(userId),

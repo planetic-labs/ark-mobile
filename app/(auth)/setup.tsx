@@ -15,6 +15,7 @@ import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { COLORS, FONTS } from '../../constants/Config';
 import { authStyles } from '../../constants/authStyles';
+import { useObserve } from 'expo-observe';
 
 // Третий шаг авторизации: заполнение профиля при первом входе.
 // Читает setupToken из store. Если его нет — возвращает на index.
@@ -29,10 +30,13 @@ export default function SetupScreen(): React.ReactElement {
   const [isLastFocused, setIsLastFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const { markInteractive } = useObserve();
+
   // Защита: если setupToken пропал (перезапуск приложения) — на index
   useEffect(() => {
     if (!setupToken) router.replace('/(auth)');
-  }, [setupToken]);
+    markInteractive();
+  }, [setupToken, markInteractive]);
 
   const handleSubmit = async (): Promise<void> => {
     if (!firstName.trim() || !lastName.trim() || !setupToken) return;

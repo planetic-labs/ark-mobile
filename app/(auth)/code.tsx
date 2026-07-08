@@ -14,6 +14,7 @@ import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { COLORS, FONTS } from '../../constants/Config';
 import { authStyles } from '../../constants/authStyles';
+import { useObserve } from 'expo-observe';
 
 const CODE_LENGTH = 6;
 const RESEND_DELAY_SEC = 43;
@@ -32,11 +33,14 @@ export default function CodeScreen(): React.ReactElement {
   const [resendTimer, setResendTimer] = useState(RESEND_DELAY_SEC);
   const codeInputRef = useRef<TextInput>(null);
 
+  const { markInteractive } = useObserve();
+
   // Фокус на скрытый инпут после монтирования
   useEffect(() => {
     const timeout = setTimeout(() => codeInputRef.current?.focus(), 300);
+    markInteractive();
     return () => clearTimeout(timeout);
-  }, []);
+  }, [markInteractive]);
 
   // Обратный отсчёт для повторной отправки
   useEffect(() => {

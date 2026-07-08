@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { router } from 'expo-router';
@@ -10,6 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { settingsStyles as styles } from '../../styles/settingsStyles';
 import { useTimerStore } from '../../stores/useTimerStore';
+import { useObserve } from 'expo-observe';
 
 // SVG Icons for Menu Items
 const BellIcon = ({ color }: { color: string }) => (
@@ -98,6 +99,11 @@ export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const [mode, setMode] = useState<'menu' | 'timer'>('menu');
+  const { markInteractive } = useObserve();
+
+  useEffect(() => {
+    markInteractive();
+  }, [markInteractive]);
 
   // Таймер стейт из Zustand
   const duration = useTimerStore((state) => state.duration);

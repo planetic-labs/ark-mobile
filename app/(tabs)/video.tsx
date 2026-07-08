@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS, FONTS } from '../../constants/Config';
+import { useObserve } from 'expo-observe';
 
 interface Playlist {
   id: string;
@@ -15,6 +16,12 @@ interface Playlist {
 }
 
 export default function VideoScreen() {
+  const { markInteractive } = useObserve();
+
+  useEffect(() => {
+    markInteractive();
+  }, [markInteractive]);
+
   const playlists: Playlist[] = [
     { id: '1', letter: 'Н', name: 'Начало', progress: 100, total: 12, studied: 12, color: '#DCD5C7' },
     { id: '2', letter: 'Д', name: 'Дисциплина', progress: 55, total: 11, studied: 6, color: '#B9770C' },

@@ -18,6 +18,7 @@ import { COLORS } from '../../constants/Config';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { enqueueMessage, getPendingMessagesForChat } from '../../services/offlineQueue';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { useObserve } from 'expo-observe';
 import {
   MessageBubble,
   ReportCard,
@@ -68,6 +69,7 @@ export default function ChatScreen(): React.ReactElement {
   const headerHeight = useHeaderHeight();
   const { lastEvent } = useWebSocket();
   const router = useRouter();
+  const { markInteractive } = useObserve();
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -103,6 +105,12 @@ export default function ChatScreen(): React.ReactElement {
     queryFn: () => api.messaging.getMessages(id as string),
     enabled: !!id && id !== 'undefined',
   });
+
+  useEffect(() => {
+    if (!isLoading) {
+      markInteractive();
+    }
+  }, [isLoading, markInteractive]);
 
   const { data: pendingMessages } = useQuery({
     queryKey: ['pendingMessages', id],

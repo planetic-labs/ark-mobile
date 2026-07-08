@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { materialsStyles as styles } from '../../styles/materialsStyles';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { COLORS, FONTS } from '../../constants/Config';
+import { useObserve } from 'expo-observe';
 
 type ViewMode = 'menu' | 'audio' | 'quotes';
 
 export default function MaterialsScreen() {
   const [mode, setMode] = useState<ViewMode>('menu');
+  const { markInteractive } = useObserve();
+
+  useEffect(() => {
+    markInteractive();
+  }, [markInteractive]);
 
   const quotes = [
     { id: '1', text: "Усилие — это не напряжение тела, а возвращение внимания.", source: "Сатсанг 13.08", time: "14:20" },

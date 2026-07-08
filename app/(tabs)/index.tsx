@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -6,16 +6,23 @@ import { api } from '../../services/api';
 import { COLORS } from '../../constants/Config';
 import { getChatDecoration } from '../../constants/chatDecorations';
 import { chatListStyles as styles } from '../../styles/chatListStyles';
+import { useObserve } from 'expo-observe';
 
 const TABS = ['Мастер', 'Основные', 'Воины', 'Команда', 'Ретрит'] as const;
 
 export default function ChatListScreen(): React.ReactElement {
   const [activeTab, setActiveTab] = useState<typeof TABS[number]>('Основные');
-
+  const { markInteractive } = useObserve();
   const { data: chats, isLoading, error, refetch } = useQuery({
     queryKey: ['chats'],
     queryFn: api.messaging.listChats,
   });
+
+  useEffect(() => {
+    if (!isLoading) {
+      markInteractive();
+    }
+  }, [isLoading, markInteractive]);
 
   const filteredChats = useMemo(() => {
     if (!chats) return [];

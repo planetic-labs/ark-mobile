@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Modal, FlatList, Platform } from 'react-native';
 import { navigatorStyles as styles } from '../../styles/navigatorStyles';
 import { Tabs } from 'expo-router';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { COLORS, FONTS } from '../../constants/Config';
+import { useObserve } from 'expo-observe';
 
 interface SectionItem {
   id: string;
@@ -14,6 +15,11 @@ interface SectionItem {
 
 export default function NavigatorScreen() {
   const [modalVisible, setModalVisible] = useState(false);
+  const { markInteractive } = useObserve();
+
+  useEffect(() => {
+    markInteractive();
+  }, [markInteractive]);
 
   const sections: SectionItem[] = [
     { id: '1', num: '01', name: 'Договор', status: 'done' },

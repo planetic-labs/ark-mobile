@@ -3,12 +3,19 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { COLORS, FONTS } from '../../constants/Config';
 import { authStyles } from '../../constants/authStyles';
+import { useObserve } from 'expo-observe';
+import { useEffect } from 'react';
 
 // Экран ожидания одобрения администратором.
 // Показывается когда accessToken есть, но currentUser.is_approved === false.
 // Единственное действие — выйти (logout вернёт на /index через root redirect).
 export default function WaitingScreen(): React.ReactElement {
   const logout = useAuthStore((state) => state.logout);
+  const { markInteractive } = useObserve();
+
+  useEffect(() => {
+    markInteractive();
+  }, [markInteractive]);
 
   return (
     <View style={authStyles.container}>

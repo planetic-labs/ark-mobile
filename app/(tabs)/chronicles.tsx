@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity } from 'react-native';
 import { chroniclesStyles as styles } from '../../styles/chroniclesStyles';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { COLORS, FONTS } from '../../constants/Config';
+import { useObserve } from 'expo-observe';
 
 interface ChronicleItem {
   id: string;
@@ -20,6 +21,11 @@ interface ChronicleItem {
 
 export default function ChroniclesScreen() {
   const [search, setSearch] = useState('');
+  const { markInteractive } = useObserve();
+
+  useEffect(() => {
+    markInteractive();
+  }, [markInteractive]);
   const [items, setItems] = useState<ChronicleItem[]>([
     {
       id: '1',
