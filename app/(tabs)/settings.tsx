@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, Alert, Platform } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
@@ -156,18 +156,32 @@ export default function SettingsScreen() {
   const isWarrior = currentUser?.role === 'WARRIOR' || currentUser?.role === 'MASTER';
   const roleDisplayName = currentUser?.role === 'ADMIN' ? 'Администратор' : '◈ Воин Света';
 
-  const getVersionString = (): string => {
+  const getVersionInfo = (): string[] => {
     const pkgVersion = Constants.expoConfig?.version || '0.0.0';
-    if (!Updates.channel && !Updates.createdAt) {
-      return `local-${pkgVersion}`;
+    const buildVersion = Platform.OS === 'ios'
+      ? Constants.expoConfig?.ios?.buildNumber
+      : Constants.expoConfig?.android?.versionCode;
+      
+    const buildStr = buildVersion ? ` (сборка ${buildVersion})` : '';
+    
+    const infoLines = [
+      `Приложение: v${pkgVersion}${buildStr}`
+    ];
+
+    if (Updates.channel) {
+      const updateIdStr = Updates.updateId ? ` [${Updates.updateId.substring(0, 8)}]` : '';
+      const dateStr = Updates.createdAt 
+        ? ` от ${new Date(Updates.createdAt).toLocaleDateString('ru-RU')} ${new Date(Updates.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+        : '';
+      infoLines.push(`Канал обновлений: ${Updates.channel}${updateIdStr}`);
+      if (dateStr) {
+        infoLines.push(`Дата обновления: ${dateStr}`);
+      }
+    } else {
+      infoLines.push('Режим разработки (локальный запуск)');
     }
-    
-    const branch = Updates.channel || 'unknown';
-    const now = Updates.createdAt ? new Date(Updates.createdAt) : new Date();
-    const pad = (num: number) => String(num).padStart(2, '0');
-    const timeStr = `${pad(now.getHours())}${pad(now.getMinutes())}`;
-    
-    return `${branch}-${pkgVersion}-${timeStr}`;
+
+    return infoLines;
   };
 
   if (mode === 'timer') {
@@ -349,7 +363,11 @@ export default function SettingsScreen() {
 
         {/* Application version */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>{getVersionString()}</Text>
+          {getVersionInfo().map((line, index) => (
+            <Text key={index} style={[styles.versionText, index > 0 && { marginTop: 4 }]}>
+              {line}
+            </Text>
+          ))}
         </View>
 
       </ScrollView>
