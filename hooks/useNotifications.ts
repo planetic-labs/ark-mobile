@@ -99,6 +99,22 @@ export function useNotifications(): UseNotificationsResult {
           vibrationPattern: [0, 500, 250, 500],
           lightColor: '#b78845',
         });
+
+        await Notifications.setNotificationChannelAsync('timer_warrior', {
+          name: 'Таймер: Сирена Воина',
+          importance: Notifications.AndroidImportance.MAX,
+          sound: 'siren_warrior.wav',
+          vibrationPattern: [0, 500, 250, 500],
+          lightColor: '#b78845',
+        });
+
+        await Notifications.setNotificationChannelAsync('timer_satsang', {
+          name: 'Таймер: Сирена Сатсанга',
+          importance: Notifications.AndroidImportance.MAX,
+          sound: 'siren_satsang.wav',
+          vibrationPattern: [0, 500, 250, 500],
+          lightColor: '#b78845',
+        });
       }
     } catch (error) {
       console.error('[Notifications] Ошибка регистрации push-токена:', error);

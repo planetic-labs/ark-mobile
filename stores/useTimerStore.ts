@@ -84,7 +84,7 @@ export const useTimerStore = create<TimerState>()(
             trigger: {
               type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
               seconds: nextTimeLeft,
-              channelId: sound,
+              channelId: `timer_${sound}`,
             },
           });
         } catch (error) {
@@ -139,19 +139,58 @@ export const useTimerStore = create<TimerState>()(
       },
 
       syncTimeLeft: (wasInBackground) => {
-        const { endTime, isActive } = get();
+        const { endTime, duration, isActive, sound, notificationId } = get();
         if (!isActive || !endTime) return;
-        const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
-        if (remaining <= 0) {
+        
+        const now = Date.now();
+        if (now >= endTime) {
+          // Время вышло, таймер перезапускается циклично
+          const cycleMs = duration * 1000;
+          const overdueMs = now - endTime;
+          const extraCycles = Math.floor(overdueMs / cycleMs) + 1;
+          
+          const nextEndTime = endTime + extraCycles * cycleMs;
+          const nextTimeLeft = Math.max(0, Math.floor((nextEndTime - now) / 1000));
+          
+          // Отменяем старое уведомление и планируем новое асинхронно
+          (async () => {
+            if (notificationId) {
+              try {
+                await Notifications.cancelScheduledNotificationAsync(notificationId);
+              } catch (e) {
+                console.log('Failed to cancel finished notification', e);
+              }
+            }
+            
+            let newNotificationId: string | null = null;
+            try {
+              const soundName = sound === 'siren_satsang' ? 'siren_satsang.wav' : 'siren_warrior.wav';
+              newNotificationId = await Notifications.scheduleNotificationAsync({
+                content: {
+                  title: 'Практика продолжается',
+                  body: 'Начался новый цикл таймера.',
+                  sound: soundName,
+                },
+                trigger: {
+                  type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                  seconds: nextTimeLeft <= 0 ? duration : nextTimeLeft,
+                  channelId: `timer_${sound}`,
+                },
+              });
+            } catch (error) {
+              console.error('Failed to reschedule local notification for timer:', error);
+            }
+            
+            set({ notificationId: newNotificationId });
+          })();
+          
           set({
-            timeLeft: 0,
-            isActive: false,
+            timeLeft: nextTimeLeft,
+            endTime: nextEndTime,
             isFinished: !wasInBackground,
-            endTime: null,
-            notificationId: null,
           });
         } else {
-          set({ timeLeft: remaining });
+          set({ timeLeft: Math.max(0, Math.floor((endTime - now) / 1000)) });
         }
       },
 
