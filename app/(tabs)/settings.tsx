@@ -75,6 +75,30 @@ const MenuIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
+const ArrowUp = ({ color }: { color: string }) => (
+  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 20V4M5 11l7-7 7 7"
+      stroke={color}
+      strokeWidth={2.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const ArrowDown = ({ color }: { color: string }) => (
+  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 4v16M5 13l7 7 7-7"
+      stroke={color}
+      strokeWidth={2.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const ChevronRight = ({ color }: { color: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path
@@ -278,17 +302,17 @@ export default function SettingsScreen() {
                           disabled={actualIndex === 0} 
                           onPress={() => moveTab(actualIndex, 'up')}
                           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                          style={{ opacity: actualIndex === 0 ? 0.25 : 1, padding: 4 }}
+                          style={{ opacity: actualIndex === 0 ? 0.25 : 1, padding: 6, justifyContent: 'center', alignItems: 'center' }}
                         >
-                          <Text style={{ fontSize: 18, color: COLORS.amber, fontWeight: 'bold' }}>↑</Text>
+                          <ArrowUp color={COLORS.amber} />
                         </TouchableOpacity>
                         <TouchableOpacity 
                           disabled={actualIndex === activeTabs.length - 1} 
                           onPress={() => moveTab(actualIndex, 'down')}
                           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                          style={{ opacity: actualIndex === activeTabs.length - 1 ? 0.25 : 1, padding: 4 }}
+                          style={{ opacity: actualIndex === activeTabs.length - 1 ? 0.25 : 1, padding: 6, justifyContent: 'center', alignItems: 'center' }}
                         >
-                          <Text style={{ fontSize: 18, color: COLORS.amber, fontWeight: 'bold' }}>↓</Text>
+                          <ArrowDown color={COLORS.amber} />
                         </TouchableOpacity>
                       </View>
                     )}
