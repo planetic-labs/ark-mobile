@@ -59,6 +59,18 @@ const TimerIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
+const MenuIcon = ({ color }: { color: string }) => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M4 6h16M4 12h16M4 18h16"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const ChevronRight = ({ color }: { color: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path
@@ -78,7 +90,7 @@ export default function SettingsScreen() {
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundsEnabled, setSoundsEnabled] = useState(true);
-  const [mode, setMode] = useState<'menu' | 'timer'>('menu');
+  const [mode, setMode] = useState<'menu' | 'timer' | 'navigation'>('menu');
   const { markInteractive } = useObserve();
 
   useEffect(() => {
@@ -210,6 +222,90 @@ export default function SettingsScreen() {
 
     return infoLines;
   };
+
+  if (mode === 'navigation') {
+    const ALL_TABS_METADATA = [
+      { name: 'index', title: 'Чат', canBeHidden: true },
+      { name: 'navigator', title: 'Навигатор', canBeHidden: true },
+      { name: 'video', title: 'Видео', canBeHidden: true },
+      { name: 'materials', title: 'Материалы', canBeHidden: true },
+      { name: 'chronicles', title: 'Летописи', canBeHidden: true },
+      { name: 'admin', title: 'Админка', adminOnly: true },
+      { name: 'settings', title: 'Настройки', canBeHidden: false },
+    ];
+
+    const isAdmin = currentUser?.role === 'ADMIN';
+
+    const activeTabs = tabSettings
+      .map((name) => ALL_TABS_METADATA.find((t) => t.name === name))
+      .filter((t): t is typeof ALL_TABS_METADATA[0] => !!t && (!t.adminOnly || isAdmin));
+
+    const inactiveTabs = ALL_TABS_METADATA.filter(
+      (t) => !tabSettings.includes(t.name) && (!t.adminOnly || isAdmin)
+    );
+
+    const settingsTabsList = [...activeTabs, ...inactiveTabs];
+
+    return (
+      <View style={styles.container}>
+        {/* subHeader */}
+        <View style={styles.subHeader}>
+          <TouchableOpacity style={styles.backButton} onPress={() => setMode('menu')}>
+            <Text style={styles.backButtonText}>Назад</Text>
+          </TouchableOpacity>
+          <Text style={styles.subHeaderTitle}>Настройка нижнего меню</Text>
+        </View>
+
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+          <Text style={styles.sectionTitle}>Порядок и видимость вкладок</Text>
+          <View style={styles.menuGroup}>
+            {settingsTabsList.map((tab, listIndex) => {
+              const isVisible = tab.canBeHidden === false || tabSettings.includes(tab.name);
+              const actualIndex = tabSettings.indexOf(tab.name);
+              
+              return (
+                <View key={tab.name} style={[styles.menuItem, listIndex === settingsTabsList.length - 1 && styles.menuItemLast]}>
+                  <View style={styles.menuItemLeft}>
+                    {actualIndex !== -1 && (
+                      <View style={{ flexDirection: 'row', marginRight: 12, gap: 8 }}>
+                        <TouchableOpacity 
+                          disabled={actualIndex === 0} 
+                          onPress={() => moveTab(actualIndex, 'up')}
+                          style={{ opacity: actualIndex === 0 ? 0.25 : 1, padding: 2 }}
+                        >
+                          <Text style={{ fontSize: 16, color: COLORS.amber, fontWeight: 'bold' }}>↑</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          disabled={actualIndex === activeTabs.length - 1} 
+                          onPress={() => moveTab(actualIndex, 'down')}
+                          style={{ opacity: actualIndex === activeTabs.length - 1 ? 0.25 : 1, padding: 2 }}
+                        >
+                          <Text style={{ fontSize: 16, color: COLORS.amber, fontWeight: 'bold' }}>↓</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <Text style={[styles.menuItemText, { marginLeft: actualIndex !== -1 ? 0 : 44 }]}>
+                      {tab.title}
+                    </Text>
+                  </View>
+                  {tab.canBeHidden !== false ? (
+                    <Switch
+                      value={isVisible}
+                      onValueChange={() => toggleTabVisibility(tab.name)}
+                      trackColor={{ false: '#ECE7DD', true: COLORS.amberTint }}
+                      thumbColor={isVisible ? COLORS.amber : '#A69D8F'}
+                    />
+                  ) : (
+                    <Text style={{ fontSize: 11, fontFamily: FONTS.mono, color: COLORS.textMuted }}>Обязательно</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
 
   if (mode === 'timer') {
     const minutes = Math.floor(timeLeft / 60);
@@ -369,75 +465,16 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Tab Bar Settings */}
-        <Text style={styles.sectionTitle}>Настройка нижнего меню</Text>
+        {/* Interface Group */}
+        <Text style={styles.sectionTitle}>Интерфейс</Text>
         <View style={styles.menuGroup}>
-          {(() => {
-            const ALL_TABS_METADATA = [
-              { name: 'index', title: 'Чат', canBeHidden: true },
-              { name: 'navigator', title: 'Навигатор', canBeHidden: true },
-              { name: 'video', title: 'Видео', canBeHidden: true },
-              { name: 'materials', title: 'Материалы', canBeHidden: true },
-              { name: 'chronicles', title: 'Летописи', canBeHidden: true },
-              { name: 'admin', title: 'Админка', adminOnly: true },
-              { name: 'settings', title: 'Настройки', canBeHidden: false },
-            ];
-
-            const isAdmin = currentUser?.role === 'ADMIN';
-
-            const activeTabs = tabSettings
-              .map((name) => ALL_TABS_METADATA.find((t) => t.name === name))
-              .filter((t): t is typeof ALL_TABS_METADATA[0] => !!t && (!t.adminOnly || isAdmin));
-
-            const inactiveTabs = ALL_TABS_METADATA.filter(
-              (t) => !tabSettings.includes(t.name) && (!t.adminOnly || isAdmin)
-            );
-
-            const settingsTabsList = [...activeTabs, ...inactiveTabs];
-
-            return settingsTabsList.map((tab, listIndex) => {
-              const isVisible = tab.canBeHidden === false || tabSettings.includes(tab.name);
-              const actualIndex = tabSettings.indexOf(tab.name);
-              
-              return (
-                <View key={tab.name} style={[styles.menuItem, listIndex === settingsTabsList.length - 1 && styles.menuItemLast]}>
-                  <View style={styles.menuItemLeft}>
-                    {actualIndex !== -1 && (
-                      <View style={{ flexDirection: 'row', marginRight: 12, gap: 8 }}>
-                        <TouchableOpacity 
-                          disabled={actualIndex === 0} 
-                          onPress={() => moveTab(actualIndex, 'up')}
-                          style={{ opacity: actualIndex === 0 ? 0.25 : 1, padding: 2 }}
-                        >
-                          <Text style={{ fontSize: 16, color: COLORS.amber, fontWeight: 'bold' }}>↑</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          disabled={actualIndex === activeTabs.length - 1} 
-                          onPress={() => moveTab(actualIndex, 'down')}
-                          style={{ opacity: actualIndex === activeTabs.length - 1 ? 0.25 : 1, padding: 2 }}
-                        >
-                          <Text style={{ fontSize: 16, color: COLORS.amber, fontWeight: 'bold' }}>↓</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                    <Text style={[styles.menuItemText, { marginLeft: actualIndex !== -1 ? 0 : 44 }]}>
-                      {tab.title}
-                    </Text>
-                  </View>
-                  {tab.canBeHidden !== false ? (
-                    <Switch
-                      value={isVisible}
-                      onValueChange={() => toggleTabVisibility(tab.name)}
-                      trackColor={{ false: '#ECE7DD', true: COLORS.amberTint }}
-                      thumbColor={isVisible ? COLORS.amber : '#A69D8F'}
-                    />
-                  ) : (
-                    <Text style={{ fontSize: 11, fontFamily: FONTS.mono, color: COLORS.textMuted }}>Обязательно</Text>
-                  )}
-                </View>
-              );
-            });
-          })()}
+          <TouchableOpacity style={[styles.menuItem, styles.menuItemLast]} onPress={() => setMode('navigation')}>
+            <View style={styles.menuItemLeft}>
+              <MenuIcon color={COLORS.amber} />
+              <Text style={styles.menuItemText}>Настройка нижнего меню</Text>
+            </View>
+            <ChevronRight color={COLORS.textMuted} />
+          </TouchableOpacity>
         </View>
 
         {/* Actions Group */}
