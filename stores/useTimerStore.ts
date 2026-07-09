@@ -119,6 +119,15 @@ export const useTimerStore = create<TimerState>()(
 
         const newNotificationIds = await scheduleNotificationPack(nextTimeLeft, duration, sound);
 
+        Observe.logEvent('timer.started', {
+          severity: 'info',
+          attributes: {
+            duration,
+            sound,
+            timeLeft: nextTimeLeft,
+          },
+        });
+
         set({
           isActive: true,
           timeLeft: nextTimeLeft,
