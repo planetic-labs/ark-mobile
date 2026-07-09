@@ -12,6 +12,7 @@ import { settingsStyles as styles } from '../../styles/settingsStyles';
 import { useTimerStore } from '../../stores/useTimerStore';
 import { useObserve } from 'expo-observe';
 import { useUIStore } from '../../stores/useUIStore';
+import { DraggableTabItem } from '../../components/DraggableTabItem';
 
 // SVG Icons for Menu Items
 const BellIcon = ({ color }: { color: string }) => (
@@ -122,16 +123,41 @@ export default function SettingsScreen() {
     }
   };
 
-  const moveTab = (index: number, direction: 'up' | 'down') => {
-    const newSettings = [...tabSettings];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= newSettings.length) return;
-    
-    const temp = newSettings[index];
-    newSettings[index] = newSettings[targetIndex];
-    newSettings[targetIndex] = temp;
-    
-    setTabSettings(newSettings);
+  const handleDragEnd = (currentIndex: number, dy: number) => {
+    const ITEM_HEIGHT = 56;
+    const offset = Math.round(dy / ITEM_HEIGHT);
+    if (offset === 0) return;
+
+    const ALL_TABS_METADATA = [
+      { name: 'index', title: 'Чат', canBeHidden: true },
+      { name: 'navigator', title: 'Навигатор', canBeHidden: true },
+      { name: 'video', title: 'Видео', canBeHidden: true },
+      { name: 'materials', title: 'Материалы', canBeHidden: true },
+      { name: 'chronicles', title: 'Летописи', canBeHidden: true },
+      { name: 'admin', title: 'Админка', adminOnly: true },
+      { name: 'settings', title: 'Настройки', canBeHidden: false },
+    ];
+    const isAdmin = currentUser?.role === 'ADMIN';
+    const activeTabs = tabSettings
+      .map((name) => ALL_TABS_METADATA.find((t) => t.name === name))
+      .filter((t): t is typeof ALL_TABS_METADATA[0] => !!t && (!t.adminOnly || isAdmin));
+
+    const targetActiveIndex = Math.max(0, Math.min(activeTabs.length - 1, currentIndex + offset));
+    if (targetActiveIndex === currentIndex) return;
+
+    const currentTabName = activeTabs[currentIndex].name;
+    const targetTabName = activeTabs[targetActiveIndex].name;
+
+    const realCurrentIndex = tabSettings.indexOf(currentTabName);
+    const realTargetIndex = tabSettings.indexOf(targetTabName);
+
+    if (realCurrentIndex !== -1 && realTargetIndex !== -1) {
+      const newSettings = [...tabSettings];
+      const temp = newSettings[realCurrentIndex];
+      newSettings[realCurrentIndex] = newSettings[realTargetIndex];
+      newSettings[realTargetIndex] = temp;
+      setTabSettings(newSettings);
+    }
   };
 
   const handleLogout = async () => {
@@ -263,41 +289,33 @@ export default function SettingsScreen() {
               const isVisible = tab.canBeHidden === false || tabSettings.includes(tab.name);
               const actualIndex = tabSettings.indexOf(tab.name);
               
+              if (actualIndex !== -1) {
+                return (
+                  <DraggableTabItem
+                    key={tab.name}
+                    title={tab.title}
+                    canBeHidden={tab.canBeHidden !== false}
+                    isVisible={isVisible}
+                    onToggle={() => toggleTabVisibility(tab.name)}
+                    onDragEnd={(dy) => handleDragEnd(actualIndex, dy)}
+                    itemHeight={56}
+                  />
+                );
+              }
+              
               return (
-                <View key={tab.name} style={[styles.menuItem, listIndex === settingsTabsList.length - 1 && styles.menuItemLast]}>
+                <View key={tab.name} style={[styles.menuItem, listIndex === settingsTabsList.length - 1 && styles.menuItemLast, { height: 56 }]}>
                   <View style={styles.menuItemLeft}>
-                    {actualIndex !== -1 && (
-                      <View style={{ flexDirection: 'row', marginRight: 12, gap: 8 }}>
-                        <TouchableOpacity 
-                          disabled={actualIndex === 0} 
-                          onPress={() => moveTab(actualIndex, 'up')}
-                          style={{ opacity: actualIndex === 0 ? 0.25 : 1, padding: 2 }}
-                        >
-                          <Text style={{ fontSize: 16, color: COLORS.amber, fontWeight: 'bold' }}>↑</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          disabled={actualIndex === activeTabs.length - 1} 
-                          onPress={() => moveTab(actualIndex, 'down')}
-                          style={{ opacity: actualIndex === activeTabs.length - 1 ? 0.25 : 1, padding: 2 }}
-                        >
-                          <Text style={{ fontSize: 16, color: COLORS.amber, fontWeight: 'bold' }}>↓</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                    <Text style={[styles.menuItemText, { marginLeft: actualIndex !== -1 ? 0 : 44 }]}>
+                    <Text style={[styles.menuItemText, { marginLeft: 44 }]}>
                       {tab.title}
                     </Text>
                   </View>
-                  {tab.canBeHidden !== false ? (
-                    <Switch
-                      value={isVisible}
-                      onValueChange={() => toggleTabVisibility(tab.name)}
-                      trackColor={{ false: '#ECE7DD', true: COLORS.amberTint }}
-                      thumbColor={isVisible ? COLORS.amber : '#A69D8F'}
-                    />
-                  ) : (
-                    <Text style={{ fontSize: 11, fontFamily: FONTS.mono, color: COLORS.textMuted }}>Обязательно</Text>
-                  )}
+                  <Switch
+                    value={isVisible}
+                    onValueChange={() => toggleTabVisibility(tab.name)}
+                    trackColor={{ false: '#ECE7DD', true: COLORS.amberTint }}
+                    thumbColor={isVisible ? COLORS.amber : '#A69D8F'}
+                  />
                 </View>
               );
             })}
