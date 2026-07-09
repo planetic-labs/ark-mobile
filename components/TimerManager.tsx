@@ -34,10 +34,12 @@ export function TimerManager(): null {
 
   // Восстановление точного времени при разблокировке/возвращении в приложение
   useEffect(() => {
+    let lastState = AppState.currentState;
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active') {
-        syncTimeLeft();
+      if (nextAppState === 'active' && lastState !== 'active') {
+        syncTimeLeft(true);
       }
+      lastState = nextAppState;
     });
 
     return () => {

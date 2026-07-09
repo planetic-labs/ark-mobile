@@ -33,7 +33,7 @@ interface TimerState {
   stopTimer: () => Promise<void>;
   resetTimer: () => Promise<void>;
   tick: () => void;
-  syncTimeLeft: () => void;
+  syncTimeLeft: (wasInBackground?: boolean) => void;
   resetFinished: () => void;
 }
 
@@ -138,7 +138,7 @@ export const useTimerStore = create<TimerState>()(
         });
       },
 
-      syncTimeLeft: () => {
+      syncTimeLeft: (wasInBackground) => {
         const { endTime, isActive } = get();
         if (!isActive || !endTime) return;
         const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
@@ -146,7 +146,7 @@ export const useTimerStore = create<TimerState>()(
           set({
             timeLeft: 0,
             isActive: false,
-            isFinished: true,
+            isFinished: !wasInBackground,
             endTime: null,
             notificationId: null,
           });

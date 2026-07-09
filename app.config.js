@@ -32,7 +32,10 @@ module.exports = ({ config }) => {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff"
       },
-      softwareKeyboardLayoutMode: "resize"
+      softwareKeyboardLayoutMode: "resize",
+      permissions: [
+        "android.permission.SCHEDULE_EXACT_ALARM"
+      ]
     },
     web: {
       favicon: "./assets/favicon.png"
