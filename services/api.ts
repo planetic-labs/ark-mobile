@@ -236,5 +236,15 @@ export const api = {
           name: name,
         }),
       }),
+
+    createGroupChat: (name: string, memberIds: string[]): Promise<Chat> =>
+      request<Chat>('/messaging/chats', {
+        method: 'POST',
+        body: JSON.stringify({
+          member_ids: memberIds,
+          is_group: true,
+          name: name,
+        }),
+      }),
   },
 };

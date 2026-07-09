@@ -11,50 +11,111 @@ import {
   Switch,
   Platform,
   StyleSheet,
+  ScrollView,
 } from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { COLORS, FONTS } from '../../constants/Config';
 import { useObserve } from 'expo-observe';
-import { type User, type UserRole } from '../../types/shared';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { type User, type UserRole, type Chat } from '../../types/shared';
+
+// SVG Icons
+const UsersIcon = ({ color }: { color: string }) => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm14 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const GroupIcon = ({ color }: { color: string }) => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const ChevronRightIcon = ({ color }: { color: string }) => (
+  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M9 18l6-6-6-6"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
 
 export default function AdminScreen(): React.ReactElement {
   const { markInteractive } = useObserve();
   const queryClient = useQueryClient();
+  const currentUserId = useAuthStore((state) => state.currentUser?.id);
+
+  // Режим экрана: menu (главный хаб), users (участники), groups (групповые чаты)
+  const [mode, setMode] = useState<'menu' | 'users' | 'groups'>('menu');
 
   // Queries
-  const { data: users, isLoading } = useQuery<User[]>({
+  const { data: users, isLoading: isUsersLoading } = useQuery<User[]>({
     queryKey: ['users'],
     queryFn: api.users.listAll,
+    enabled: mode === 'users',
   });
 
+  const { data: chats, isLoading: isChatsLoading } = useQuery<Chat[]>({
+    queryKey: ['groupChats'],
+    queryFn: api.messaging.listChats,
+    enabled: mode === 'groups',
+  });
+
+  const groupChats = chats?.filter((c) => c.is_group) || [];
+
   useEffect(() => {
-    if (!isLoading) {
+    if (mode === 'menu') {
+      markInteractive();
+    } else if (mode === 'users' && !isUsersLoading) {
+      markInteractive();
+    } else if (mode === 'groups' && !isChatsLoading) {
       markInteractive();
     }
-  }, [isLoading, markInteractive]);
+  }, [mode, isUsersLoading, isChatsLoading, markInteractive]);
 
-  // Create Modal State
-  const [isCreateVisible, setCreateVisible] = useState(false);
+  // Create User Modal State
+  const [isCreateUserVisible, setCreateUserVisible] = useState(false);
   const [createEmail, setCreateEmail] = useState('');
   const [createFullName, setCreateFullName] = useState('');
   const [createRole, setCreateRole] = useState<UserRole>('STUDENT');
 
-  // Edit Modal State
+  // Edit User Modal State
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editFullName, setEditFullName] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('STUDENT');
   const [editIsActive, setEditIsActive] = useState(true);
   const [editIsApproved, setEditIsApproved] = useState(true);
 
-  // Mutations
+  // Create Group Modal State
+  const [isCreateGroupVisible, setCreateGroupVisible] = useState(false);
+  const [groupName, setGroupName] = useState('');
+
+  // User Mutations
   const createUserMutation = useMutation({
     mutationFn: (userData: { email: string; full_name?: string; role: UserRole }) =>
       api.users.create(userData),
     onSuccess: () => {
       Alert.alert('Успех', 'Пользователь успешно добавлен.');
-      setCreateVisible(false);
+      setCreateUserVisible(false);
       setCreateEmail('');
       setCreateFullName('');
       setCreateRole('STUDENT');
@@ -84,6 +145,23 @@ export default function AdminScreen(): React.ReactElement {
       Alert.alert('Успех', 'Пользователь отключен.');
       setSelectedUser(null);
       queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: Error) => {
+      Alert.alert('Ошибка', error.message);
+    },
+  });
+
+  // Group Mutation
+  const createGroupMutation = useMutation({
+    mutationFn: (name: string) => {
+      const memberIds = currentUserId ? [currentUserId] : [];
+      return api.messaging.createGroupChat(name, memberIds);
+    },
+    onSuccess: () => {
+      Alert.alert('Успех', 'Групповой чат успешно создан.');
+      setCreateGroupVisible(false);
+      setGroupName('');
+      queryClient.invalidateQueries({ queryKey: ['groupChats'] });
     },
     onError: (error: Error) => {
       Alert.alert('Ошибка', error.message);
@@ -132,6 +210,15 @@ export default function AdminScreen(): React.ReactElement {
     );
   };
 
+  const handleCreateGroup = () => {
+    const nameTrim = groupName.trim();
+    if (!nameTrim) {
+      Alert.alert('Ошибка', 'Название группы обязательно.');
+      return;
+    }
+    createGroupMutation.mutate(nameTrim);
+  };
+
   const handleOpenEdit = (user: User) => {
     setSelectedUser(user);
     setEditFullName(user.full_name || '');
@@ -157,248 +244,407 @@ export default function AdminScreen(): React.ReactElement {
     return userRole === 'WARRIOR' || userRole === 'MASTER' || userRole === 'ADMIN';
   };
 
-  if (isLoading) {
+  // 1. MENU HUB LAYOUT
+  if (mode === 'menu') {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={COLORS.amber} />
+      <View style={styles.container}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+          <Text style={styles.adminHeaderTitle}>Панель управления</Text>
+          
+          <View style={styles.menuGroup}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => setMode('users')}>
+              <View style={styles.menuItemLeft}>
+                <View style={styles.menuIconContainer}>
+                  <UsersIcon color={COLORS.amber} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuItemTitle}>Участники сообщества</Text>
+                  <Text style={styles.menuItemSub}>Редактирование ролей, активация и одобрение участников</Text>
+                </View>
+              </View>
+              <ChevronRightIcon color={COLORS.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.menuItem, styles.menuItemLast]} onPress={() => setMode('groups')}>
+              <View style={styles.menuItemLeft}>
+                <View style={styles.menuIconContainer}>
+                  <GroupIcon color={COLORS.amber} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuItemTitle}>Групповые чаты</Text>
+                  <Text style={styles.menuItemSub}>Просмотр списка и создание новых общих каналов общения</Text>
+                </View>
+              </View>
+              <ChevronRightIcon color={COLORS.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </View>
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <FlatList
-        data={users}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        renderItem={({ item }) => {
-          const isWarrior = isWarriorRole(item.role);
-          return (
-            <TouchableOpacity style={styles.userItem} onPress={() => handleOpenEdit(item)}>
-              <View style={[styles.avatar, isWarrior && styles.avatarWarrior]}>
-                <Text style={[styles.avatarText, isWarrior && styles.avatarTextWarrior]}>
-                  {(item.full_name || item.email)[0].toUpperCase()}
-                </Text>
-              </View>
-              <View style={styles.userInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.userName}>
-                    {item.full_name || 'Без Имени'} {isWarrior && '◈'}
+  // 2. USERS MANAGEMENT LAYOUT
+  if (mode === 'users') {
+    if (isUsersLoading) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={COLORS.amber} />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.container}>
+        {/* subHeader */}
+        <View style={styles.subHeader}>
+          <TouchableOpacity style={styles.backButton} onPress={() => setMode('menu')}>
+            <Text style={styles.backButtonText}>Назад</Text>
+          </TouchableOpacity>
+          <Text style={styles.subHeaderTitle}>Участники</Text>
+        </View>
+
+        <FlatList
+          data={users}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          renderItem={({ item }) => {
+            const isWarrior = isWarriorRole(item.role);
+            return (
+              <TouchableOpacity style={styles.userItem} onPress={() => handleOpenEdit(item)}>
+                <View style={[styles.avatar, isWarrior && styles.avatarWarrior]}>
+                  <Text style={[styles.avatarText, isWarrior && styles.avatarTextWarrior]}>
+                    {(item.full_name || item.email)[0].toUpperCase()}
                   </Text>
-                  {item.role && (
-                    <View
-                      style={[
-                        styles.roleBadge,
-                        isWarrior ? styles.warriorBadge : styles.studentBadge,
-                      ]}
+                </View>
+                <View style={styles.userInfo}>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.userName}>
+                      {item.full_name || 'Без Имени'} {isWarrior && '◈'}
+                    </Text>
+                    {item.role && (
+                      <View
+                        style={[
+                          styles.roleBadge,
+                          isWarrior ? styles.warriorBadge : styles.studentBadge,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.roleBadgeText,
+                            isWarrior ? styles.warriorBadgeText : styles.studentBadgeText,
+                          ]}
+                        >
+                          {getRoleDisplayName(item.role)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.userEmail}>
+                    {item.email} • {item.is_approved ? 'Одобрен' : 'Не одобрен'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+          ListEmptyComponent={<Text style={styles.emptyText}>Участники не найдены</Text>}
+        />
+
+        {/* FAB Button to Add User */}
+        <TouchableOpacity style={styles.fab} onPress={() => setCreateUserVisible(true)}>
+          <Text style={styles.fabIcon}>+</Text>
+        </TouchableOpacity>
+
+        {/* CREATE USER MODAL */}
+        <Modal
+          visible={isCreateUserVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setCreateUserVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Новый участник</Text>
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email адрес"
+                  placeholderTextColor={COLORS.textFaint}
+                  value={createEmail}
+                  onChangeText={setCreateEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="Имя и фамилия"
+                  placeholderTextColor={COLORS.textFaint}
+                  value={createFullName}
+                  onChangeText={setCreateFullName}
+                  autoCapitalize="words"
+                />
+
+                <Text style={styles.roleLabel}>Начальная роль</Text>
+                <View style={styles.roleContainer}>
+                  {(['STUDENT', 'WARRIOR', 'MASTER', 'ADMIN'] as UserRole[]).map((r) => (
+                    <TouchableOpacity
+                      key={r}
+                      style={[styles.roleChip, createRole === r && styles.activeRoleChip]}
+                      onPress={() => setCreateRole(r)}
                     >
                       <Text
                         style={[
-                          styles.roleBadgeText,
-                          isWarrior ? styles.warriorBadgeText : styles.studentBadgeText,
+                          styles.roleChipText,
+                          createRole === r && styles.activeRoleChipText,
                         ]}
                       >
-                        {getRoleDisplayName(item.role)}
+                        {getRoleDisplayName(r)}
                       </Text>
-                    </View>
-                  )}
+                    </TouchableOpacity>
+                  ))}
                 </View>
-                <Text style={styles.userEmail}>
-                  {item.email} • {item.is_approved ? 'Одобрен' : 'Не одобрен'}
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setCreateUserVisible(false)}
+                    disabled={createUserMutation.isPending}
+                  >
+                    <Text style={styles.cancelButtonText}>Отмена</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.createButton]}
+                    onPress={handleCreateUser}
+                    disabled={createUserMutation.isPending}
+                  >
+                    {createUserMutation.isPending ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.createButtonText}>Создать</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        {/* EDIT USER MODAL */}
+        <Modal
+          visible={selectedUser !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedUser(null)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Редактирование профиля</Text>
+
+                <Text style={styles.infoLabel}>Email адрес</Text>
+                <TextInput
+                  style={[styles.input, styles.disabledInput]}
+                  value={selectedUser?.email}
+                  editable={false}
+                />
+
+                <Text style={styles.infoLabel}>Имя и фамилия</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Имя и фамилия"
+                  placeholderTextColor={COLORS.textFaint}
+                  value={editFullName}
+                  onChangeText={setEditFullName}
+                  autoCapitalize="words"
+                />
+
+                <Text style={styles.roleLabel}>Роль в сообществе</Text>
+                <View style={styles.roleContainer}>
+                  {(['STUDENT', 'WARRIOR', 'MASTER', 'ADMIN'] as UserRole[]).map((r) => (
+                    <TouchableOpacity
+                      key={r}
+                      style={[styles.roleChip, editRole === r && styles.activeRoleChip]}
+                      onPress={() => setEditRole(r)}
+                    >
+                      <Text
+                        style={[
+                          styles.roleChipText,
+                          editRole === r && styles.activeRoleChipText,
+                        ]}
+                      >
+                        {getRoleDisplayName(r)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={styles.switchGroup}>
+                  <View style={styles.switchRow}>
+                    <Text style={styles.switchLabel}>Доступ одобрен</Text>
+                    <Switch
+                      value={editIsApproved}
+                      onValueChange={setEditIsApproved}
+                      trackColor={{ false: COLORS.textFaint, true: COLORS.amber }}
+                      thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                    />
+                  </View>
+                  <View style={styles.switchRow}>
+                    <Text style={styles.switchLabel}>Активный аккаунт</Text>
+                    <Switch
+                      value={editIsActive}
+                      onValueChange={setEditIsActive}
+                      trackColor={{ false: COLORS.textFaint, true: COLORS.amber }}
+                      thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setSelectedUser(null)}
+                    disabled={updateUserMutation.isPending || deleteUserMutation.isPending}
+                  >
+                    <Text style={styles.cancelButtonText}>Закрыть</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.deleteButton]}
+                    onPress={handleDeleteUser}
+                    disabled={updateUserMutation.isPending || deleteUserMutation.isPending}
+                  >
+                    <Text style={styles.deleteButtonText}>Отключить</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.createButton]}
+                    onPress={handleUpdateUser}
+                    disabled={updateUserMutation.isPending || deleteUserMutation.isPending}
+                  >
+                    {updateUserMutation.isPending ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.createButtonText}>Сохранить</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      </View>
+    );
+  }
+
+  // 3. GROUPS MANAGEMENT LAYOUT
+  if (mode === 'groups') {
+    if (isChatsLoading) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={COLORS.amber} />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.container}>
+        {/* subHeader */}
+        <View style={styles.subHeader}>
+          <TouchableOpacity style={styles.backButton} onPress={() => setMode('menu')}>
+            <Text style={styles.backButtonText}>Назад</Text>
+          </TouchableOpacity>
+          <Text style={styles.subHeaderTitle}>Групповые чаты</Text>
+        </View>
+
+        <FlatList
+          data={groupChats}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          renderItem={({ item }) => (
+            <View style={styles.userItem}>
+              <View style={[styles.avatar, styles.avatarWarrior]}>
+                <Text style={[styles.avatarText, styles.avatarTextWarrior]}>
+                  {item.name ? item.name[0].toUpperCase() : 'G'}
                 </Text>
               </View>
-            </TouchableOpacity>
-          );
-        }}
-        ListEmptyComponent={<Text style={styles.emptyText}>Участники не найдены</Text>}
-      />
-
-      {/* FAB Button to Add User */}
-      <TouchableOpacity style={styles.fab} onPress={() => setCreateVisible(true)}>
-        <Text style={styles.fabIcon}>+</Text>
-      </TouchableOpacity>
-
-      {/* CREATE USER MODAL */}
-      <Modal
-        visible={isCreateVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCreateVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoidingView}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Новый участник</Text>
-
-              <TextInput
-                style={styles.input}
-                placeholder="Email адрес"
-                placeholderTextColor={COLORS.textFaint}
-                value={createEmail}
-                onChangeText={setCreateEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder="Имя и фамилия"
-                placeholderTextColor={COLORS.textFaint}
-                value={createFullName}
-                onChangeText={setCreateFullName}
-                autoCapitalize="words"
-              />
-
-              <Text style={styles.roleLabel}>Роль участника</Text>
-              <View style={styles.roleContainer}>
-                {(['STUDENT', 'WARRIOR', 'MASTER', 'ADMIN'] as UserRole[]).map((r) => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[styles.roleChip, createRole === r && styles.activeRoleChip]}
-                    onPress={() => setCreateRole(r)}
-                  >
-                    <Text
-                      style={[styles.roleChipText, createRole === r && styles.activeRoleChipText]}
-                    >
-                      {getRoleDisplayName(r)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => setCreateVisible(false)}
-                  disabled={createUserMutation.isPending}
-                >
-                  <Text style={styles.cancelButtonText}>Отмена</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.createButton]}
-                  onPress={handleCreateUser}
-                  disabled={createUserMutation.isPending}
-                >
-                  {createUserMutation.isPending ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.createButtonText}>Создать</Text>
-                  )}
-                </TouchableOpacity>
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{item.name || 'Без названия'}</Text>
+                <Text style={styles.userEmail}>
+                  Публичная группа • {item.members?.length || 0} участников
+                </Text>
               </View>
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          )}
+          ListEmptyComponent={<Text style={styles.emptyText}>Группы не найдены</Text>}
+        />
 
-      {/* EDIT USER MODAL */}
-      <Modal
-        visible={selectedUser !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelectedUser(null)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoidingView}
+        {/* FAB Button to Add Group */}
+        <TouchableOpacity style={styles.fab} onPress={() => setCreateGroupVisible(true)}>
+          <Text style={styles.fabIcon}>+</Text>
+        </TouchableOpacity>
+
+        {/* CREATE GROUP MODAL */}
+        <Modal
+          visible={isCreateGroupVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setCreateGroupVisible(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Управление участником</Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Новая группа</Text>
 
-              <Text style={styles.infoLabel}>Email (Не редактируется)</Text>
-              <TextInput
-                style={[styles.input, styles.disabledInput]}
-                value={selectedUser?.email || ''}
-                editable={false}
-              />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Название группы"
+                  placeholderTextColor={COLORS.textFaint}
+                  value={groupName}
+                  onChangeText={setGroupName}
+                  autoCapitalize="sentences"
+                />
 
-              <Text style={styles.infoLabel}>Имя и фамилия</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Имя и фамилия"
-                placeholderTextColor={COLORS.textFaint}
-                value={editFullName}
-                onChangeText={setEditFullName}
-                autoCapitalize="words"
-              />
-
-              <Text style={styles.roleLabel}>Роль участника</Text>
-              <View style={styles.roleContainer}>
-                {(['STUDENT', 'WARRIOR', 'MASTER', 'ADMIN'] as UserRole[]).map((r) => (
+                <View style={styles.modalButtons}>
                   <TouchableOpacity
-                    key={r}
-                    style={[styles.roleChip, editRole === r && styles.activeRoleChip]}
-                    onPress={() => setEditRole(r)}
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setCreateGroupVisible(false)}
+                    disabled={createGroupMutation.isPending}
                   >
-                    <Text
-                      style={[styles.roleChipText, editRole === r && styles.activeRoleChipText]}
-                    >
-                      {getRoleDisplayName(r)}
-                    </Text>
+                    <Text style={styles.cancelButtonText}>Отмена</Text>
                   </TouchableOpacity>
-                ))}
-              </View>
 
-              <View style={styles.switchGroup}>
-                <View style={styles.switchRow}>
-                  <Text style={styles.switchLabel}>Доступ в приложение одобрен</Text>
-                  <Switch
-                    value={editIsApproved}
-                    onValueChange={setEditIsApproved}
-                    trackColor={{ false: COLORS.textFaint, true: COLORS.amber }}
-                    thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
-                  />
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.createButton]}
+                    onPress={handleCreateGroup}
+                    disabled={createGroupMutation.isPending}
+                  >
+                    {createGroupMutation.isPending ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.createButtonText}>Создать</Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.switchRow}>
-                  <Text style={styles.switchLabel}>Активный аккаунт</Text>
-                  <Switch
-                    value={editIsActive}
-                    onValueChange={setEditIsActive}
-                    trackColor={{ false: COLORS.textFaint, true: COLORS.amber }}
-                    thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => setSelectedUser(null)}
-                  disabled={updateUserMutation.isPending || deleteUserMutation.isPending}
-                >
-                  <Text style={styles.cancelButtonText}>Закрыть</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.deleteButton]}
-                  onPress={handleDeleteUser}
-                  disabled={updateUserMutation.isPending || deleteUserMutation.isPending}
-                >
-                  <Text style={styles.deleteButtonText}>Отключить</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.createButton]}
-                  onPress={handleUpdateUser}
-                  disabled={updateUserMutation.isPending || deleteUserMutation.isPending}
-                >
-                  {updateUserMutation.isPending ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.createButtonText}>Сохранить</Text>
-                  )}
-                </TouchableOpacity>
               </View>
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </View>
-  );
+          </KeyboardAvoidingView>
+        </Modal>
+      </View>
+    );
+  }
+
+  return <></>;
 }
 
 const styles = StyleSheet.create({
@@ -570,4 +816,81 @@ const styles = StyleSheet.create({
   cancelButtonText: { color: COLORS.textSecondary, fontSize: 14, fontFamily: FONTS.bodySemiBold },
   createButtonText: { color: '#fff', fontSize: 14, fontFamily: FONTS.bodySemiBold },
   deleteButtonText: { color: '#fff', fontSize: 14, fontFamily: FONTS.bodySemiBold },
+
+  // subHeader and Menu styles
+  subHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderSoft || '#F4F1EA',
+    backgroundColor: COLORS.background,
+  },
+  backButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.borderSoft || '#F4F1EA',
+    marginRight: 16,
+  },
+  backButtonText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontFamily: FONTS.bodyMedium,
+  },
+  subHeaderTitle: {
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    fontFamily: FONTS.displaySemiBold,
+  },
+  adminHeaderTitle: {
+    fontSize: 22,
+    fontFamily: FONTS.displaySemiBold,
+    color: COLORS.textPrimary,
+    marginBottom: 20,
+    marginTop: 10,
+  },
+  menuGroup: {
+    backgroundColor: COLORS.bgSurface || '#FCFAF5',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft || '#F4F1EA',
+    overflow: 'hidden',
+    marginBottom: 25,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderSoft || '#F4F1EA',
+  },
+  menuItemLast: {
+    borderBottomWidth: 0,
+  },
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  menuIconContainer: {
+    marginRight: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuItemTitle: {
+    fontSize: 15,
+    fontFamily: FONTS.bodySemiBold,
+    color: COLORS.textPrimary,
+  },
+  menuItemSub: {
+    fontSize: 11.5,
+    fontFamily: FONTS.body,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
 });
