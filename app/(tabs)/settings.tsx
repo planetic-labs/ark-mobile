@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, Alert, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, Alert, Platform, LayoutAnimation, UIManager } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
@@ -13,6 +13,10 @@ import { useTimerStore } from '../../stores/useTimerStore';
 import { useObserve } from 'expo-observe';
 import { useUIStore } from '../../stores/useUIStore';
 import { DraggableTabItem } from '../../components/DraggableTabItem';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // SVG Icons for Menu Items
 const BellIcon = ({ color }: { color: string }) => (
@@ -114,6 +118,7 @@ export default function SettingsScreen() {
   const setTabSettings = useUIStore((state) => state.setTabSettings);
 
   const toggleTabVisibility = (tabName: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     if (tabSettings.includes(tabName)) {
       if (tabName !== 'settings') {
         setTabSettings(tabSettings.filter((t) => t !== tabName));
@@ -123,10 +128,10 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleDragEnd = (currentIndex: number, dy: number) => {
+  const handleDragEnd = (currentIndex: number, dy: number): boolean => {
     const ITEM_HEIGHT = 56;
     const offset = Math.round(dy / ITEM_HEIGHT);
-    if (offset === 0) return;
+    if (offset === 0) return false;
 
     const ALL_TABS_METADATA = [
       { name: 'index', title: 'Чат', canBeHidden: true },
@@ -143,7 +148,7 @@ export default function SettingsScreen() {
       .filter((t): t is typeof ALL_TABS_METADATA[0] => !!t && (!t.adminOnly || isAdmin));
 
     const targetActiveIndex = Math.max(0, Math.min(activeTabs.length - 1, currentIndex + offset));
-    if (targetActiveIndex === currentIndex) return;
+    if (targetActiveIndex === currentIndex) return false;
 
     const currentTabName = activeTabs[currentIndex].name;
     const targetTabName = activeTabs[targetActiveIndex].name;
@@ -152,12 +157,15 @@ export default function SettingsScreen() {
     const realTargetIndex = tabSettings.indexOf(targetTabName);
 
     if (realCurrentIndex !== -1 && realTargetIndex !== -1) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const newSettings = [...tabSettings];
       const temp = newSettings[realCurrentIndex];
       newSettings[realCurrentIndex] = newSettings[realTargetIndex];
       newSettings[realTargetIndex] = temp;
       setTabSettings(newSettings);
+      return true;
     }
+    return false;
   };
 
   const handleLogout = async () => {

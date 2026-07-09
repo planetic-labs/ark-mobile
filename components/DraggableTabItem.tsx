@@ -27,7 +27,7 @@ interface DraggableTabItemProps {
   canBeHidden: boolean;
   isVisible: boolean;
   onToggle: () => void;
-  onDragEnd: (dragOffset: number) => void;
+  onDragEnd: (dragOffset: number) => boolean;
   itemHeight: number;
 }
 
@@ -56,11 +56,18 @@ export function DraggableTabItem({
       ),
       onPanResponderRelease: (e, gestureState) => {
         setActiveDrag(false);
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: false,
-        }).start();
-        onDragEnd(gestureState.dy);
+        const didChange = onDragEnd(gestureState.dy);
+        if (didChange) {
+          // Если позиция изменилась, сбрасываем смещение мгновенно.
+          // LayoutAnimation в родителе сделает переход бесшовным.
+          pan.setValue({ x: 0, y: 0 });
+        } else {
+          // Иначе плавно возвращаем элемент на место старта
+          Animated.spring(pan, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: false,
+          }).start();
+        }
       },
       onPanResponderTerminate: () => {
         setActiveDrag(false);
