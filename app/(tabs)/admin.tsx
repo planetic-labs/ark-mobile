@@ -20,7 +20,7 @@ import { api } from '../../services/api';
 import { COLORS, FONTS } from '../../constants/Config';
 import { useObserve } from 'expo-observe';
 import { useAuthStore } from '../../stores/useAuthStore';
-import { type User, type UserRole, type Chat } from '../../types/shared';
+import { type User, type UserRole, type Chat, type AppRole, type AppPermission } from '../../types/shared';
 
 // SVG Icons
 const UsersIcon = ({ color }: { color: string }) => (
@@ -47,6 +47,18 @@ const GroupIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
+const ShieldIcon = ({ color }: { color: string }) => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const ChevronRightIcon = ({ color }: { color: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path
@@ -64,8 +76,8 @@ export default function AdminScreen(): React.ReactElement {
   const queryClient = useQueryClient();
   const currentUserId = useAuthStore((state) => state.currentUser?.id);
 
-  // Режим экрана: menu (главный хаб), users (участники), groups (групповые чаты)
-  const [mode, setMode] = useState<'menu' | 'users' | 'groups'>('menu');
+  // Режим экрана: menu, users, groups, roles
+  const [mode, setMode] = useState<'menu' | 'users' | 'groups' | 'roles'>('menu');
 
   // Queries
   const { data: users, isLoading: isUsersLoading } = useQuery<User[]>({
@@ -80,6 +92,18 @@ export default function AdminScreen(): React.ReactElement {
     enabled: mode === 'groups',
   });
 
+  const { data: roles, isLoading: isRolesLoading } = useQuery<AppRole[]>({
+    queryKey: ['roles'],
+    queryFn: api.roles.list,
+    enabled: mode === 'roles' || mode === 'users', // Роли нужны и для юзеров
+  });
+
+  const { data: permissions, isLoading: isPermissionsLoading } = useQuery<AppPermission[]>({
+    queryKey: ['permissions'],
+    queryFn: api.roles.listPermissions,
+    enabled: mode === 'roles',
+  });
+
   const groupChats = chats?.filter((c) => c.is_group) || [];
 
   useEffect(() => {
@@ -89,8 +113,10 @@ export default function AdminScreen(): React.ReactElement {
       markInteractive();
     } else if (mode === 'groups' && !isChatsLoading) {
       markInteractive();
+    } else if (mode === 'roles' && !isRolesLoading && !isPermissionsLoading) {
+      markInteractive();
     }
-  }, [mode, isUsersLoading, isChatsLoading, markInteractive]);
+  }, [mode, isUsersLoading, isChatsLoading, isRolesLoading, isPermissionsLoading, markInteractive]);
 
   // Create User Modal State
   const [isCreateUserVisible, setCreateUserVisible] = useState(false);
@@ -108,6 +134,16 @@ export default function AdminScreen(): React.ReactElement {
   // Create Group Modal State
   const [isCreateGroupVisible, setCreateGroupVisible] = useState(false);
   const [groupName, setGroupName] = useState('');
+
+  // Create Role Modal State
+  const [isCreateRoleVisible, setCreateRoleVisible] = useState(false);
+  const [createRoleName, setCreateRoleName] = useState('');
+  const [createRolePermissions, setCreateRolePermissions] = useState<string[]>([]);
+
+  // Edit Role Modal State
+  const [selectedRole, setSelectedRole] = useState<AppRole | null>(null);
+  const [editRoleName, setEditRoleName] = useState('');
+  const [editRolePermissions, setEditRolePermissions] = useState<string[]>([]);
 
   // User Mutations
   const createUserMutation = useMutation({
@@ -168,6 +204,47 @@ export default function AdminScreen(): React.ReactElement {
     },
   });
 
+  // Role Mutations
+  const createRoleMutation = useMutation({
+    mutationFn: (data: { name: string; permissions: string[] }) =>
+      api.roles.create(data.name, data.permissions),
+    onSuccess: () => {
+      Alert.alert('Успех', 'Роль успешно создана.');
+      setCreateRoleVisible(false);
+      setCreateRoleName('');
+      setCreateRolePermissions([]);
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+    },
+    onError: (error: Error) => {
+      Alert.alert('Ошибка', error.message);
+    },
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: (data: { roleId: string; name: string; permissions: string[] }) =>
+      api.roles.update(data.roleId, data.name, data.permissions),
+    onSuccess: () => {
+      Alert.alert('Успех', 'Роль и права успешно обновлены.');
+      setSelectedRole(null);
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+    },
+    onError: (error: Error) => {
+      Alert.alert('Ошибка', error.message);
+    },
+  });
+
+  const makeDefaultRoleMutation = useMutation({
+    mutationFn: (roleId: string) => api.roles.makeDefault(roleId),
+    onSuccess: () => {
+      Alert.alert('Успех', 'Роль назначена по умолчанию.');
+      setSelectedRole(null);
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+    },
+    onError: (error: Error) => {
+      Alert.alert('Ошибка', error.message);
+    },
+  });
+
   const handleCreateUser = () => {
     const emailTrim = createEmail.trim().toLowerCase();
     if (!emailTrim) {
@@ -219,6 +296,29 @@ export default function AdminScreen(): React.ReactElement {
     createGroupMutation.mutate(nameTrim);
   };
 
+  const handleCreateRole = () => {
+    const nameTrim = createRoleName.trim();
+    if (!nameTrim) {
+      Alert.alert('Ошибка', 'Название роли обязательно.');
+      return;
+    }
+    createRoleMutation.mutate({ name: nameTrim, permissions: createRolePermissions });
+  };
+
+  const handleUpdateRole = () => {
+    if (!selectedRole) return;
+    updateRoleMutation.mutate({
+      roleId: selectedRole.id,
+      name: editRoleName.trim() || selectedRole.name,
+      permissions: editRolePermissions,
+    });
+  };
+
+  const handleMakeDefaultRole = () => {
+    if (!selectedRole) return;
+    makeDefaultRoleMutation.mutate(selectedRole.id);
+  };
+
   const handleOpenEdit = (user: User) => {
     setSelectedUser(user);
     setEditFullName(user.full_name || '');
@@ -227,16 +327,40 @@ export default function AdminScreen(): React.ReactElement {
     setEditIsApproved(user.is_approved);
   };
 
+  const handleOpenEditRole = (role: AppRole) => {
+    setSelectedRole(role);
+    setEditRoleName(role.name);
+    setEditRolePermissions(role.permissions || []);
+  };
+
+  const togglePermissionForCreate = (permKey: string) => {
+    if (createRolePermissions.includes(permKey)) {
+      setCreateRolePermissions(createRolePermissions.filter((p) => p !== permKey));
+    } else {
+      setCreateRolePermissions([...createRolePermissions, permKey]);
+    }
+  };
+
+  const togglePermissionForEdit = (permKey: string) => {
+    if (editRolePermissions.includes(permKey)) {
+      setEditRolePermissions(editRolePermissions.filter((p) => p !== permKey));
+    } else {
+      setEditRolePermissions([...editRolePermissions, permKey]);
+    }
+  };
+
   const getRoleDisplayName = (r: string) => {
-    switch (r) {
+    switch (r.toUpperCase()) {
       case 'ADMIN':
         return 'Админ';
       case 'MASTER':
         return 'Мастер';
       case 'WARRIOR':
         return 'Воин';
-      default:
+      case 'STUDENT':
         return 'Ученик';
+      default:
+        return r;
     }
   };
 
@@ -265,7 +389,7 @@ export default function AdminScreen(): React.ReactElement {
               <ChevronRightIcon color={COLORS.textMuted} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.menuItem, styles.menuItemLast]} onPress={() => setMode('groups')}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => setMode('groups')}>
               <View style={styles.menuItemLeft}>
                 <View style={styles.menuIconContainer}>
                   <GroupIcon color={COLORS.amber} />
@@ -273,6 +397,19 @@ export default function AdminScreen(): React.ReactElement {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.menuItemTitle}>Групповые чаты</Text>
                   <Text style={styles.menuItemSub}>Просмотр списка и создание новых общих каналов общения</Text>
+                </View>
+              </View>
+              <ChevronRightIcon color={COLORS.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.menuItem, styles.menuItemLast]} onPress={() => setMode('roles')}>
+              <View style={styles.menuItemLeft}>
+                <View style={styles.menuIconContainer}>
+                  <ShieldIcon color={COLORS.amber} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuItemTitle}>Роли и права доступа</Text>
+                  <Text style={styles.menuItemSub}>Управление глобальными ролями и настройка прав доступа</Text>
                 </View>
               </View>
               <ChevronRightIcon color={COLORS.textMuted} />
@@ -390,22 +527,41 @@ export default function AdminScreen(): React.ReactElement {
 
                 <Text style={styles.roleLabel}>Начальная роль</Text>
                 <View style={styles.roleContainer}>
-                  {(['STUDENT', 'WARRIOR', 'MASTER', 'ADMIN'] as UserRole[]).map((r) => (
-                    <TouchableOpacity
-                      key={r}
-                      style={[styles.roleChip, createRole === r && styles.activeRoleChip]}
-                      onPress={() => setCreateRole(r)}
-                    >
-                      <Text
-                        style={[
-                          styles.roleChipText,
-                          createRole === r && styles.activeRoleChipText,
-                        ]}
+                  {roles && roles.length > 0 ? (
+                    roles.slice(0, 4).map((r) => (
+                      <TouchableOpacity
+                        key={r.id}
+                        style={[styles.roleChip, createRole === r.name && styles.activeRoleChip]}
+                        onPress={() => setCreateRole(r.name as UserRole)}
                       >
-                        {getRoleDisplayName(r)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Text
+                          style={[
+                            styles.roleChipText,
+                            createRole === r.name && styles.activeRoleChipText,
+                          ]}
+                        >
+                          {getRoleDisplayName(r.name)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    (['STUDENT', 'WARRIOR', 'MASTER', 'ADMIN'] as UserRole[]).map((r) => (
+                      <TouchableOpacity
+                        key={r}
+                        style={[styles.roleChip, createRole === r && styles.activeRoleChip]}
+                        onPress={() => setCreateRole(r)}
+                      >
+                        <Text
+                          style={[
+                            styles.roleChipText,
+                            createRole === r && styles.activeRoleChipText,
+                          ]}
+                        >
+                          {getRoleDisplayName(r)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  )}
                 </View>
 
                 <View style={styles.modalButtons}>
@@ -468,22 +624,41 @@ export default function AdminScreen(): React.ReactElement {
 
                 <Text style={styles.roleLabel}>Роль в сообществе</Text>
                 <View style={styles.roleContainer}>
-                  {(['STUDENT', 'WARRIOR', 'MASTER', 'ADMIN'] as UserRole[]).map((r) => (
-                    <TouchableOpacity
-                      key={r}
-                      style={[styles.roleChip, editRole === r && styles.activeRoleChip]}
-                      onPress={() => setEditRole(r)}
-                    >
-                      <Text
-                        style={[
-                          styles.roleChipText,
-                          editRole === r && styles.activeRoleChipText,
-                        ]}
+                  {roles && roles.length > 0 ? (
+                    roles.slice(0, 4).map((r) => (
+                      <TouchableOpacity
+                        key={r.id}
+                        style={[styles.roleChip, editRole === r.name && styles.activeRoleChip]}
+                        onPress={() => setEditRole(r.name as UserRole)}
                       >
-                        {getRoleDisplayName(r)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Text
+                          style={[
+                            styles.roleChipText,
+                            editRole === r.name && styles.activeRoleChipText,
+                          ]}
+                        >
+                          {getRoleDisplayName(r.name)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    (['STUDENT', 'WARRIOR', 'MASTER', 'ADMIN'] as UserRole[]).map((r) => (
+                      <TouchableOpacity
+                        key={r}
+                        style={[styles.roleChip, editRole === r && styles.activeRoleChip]}
+                        onPress={() => setEditRole(r)}
+                      >
+                        <Text
+                          style={[
+                            styles.roleChipText,
+                            editRole === r && styles.activeRoleChipText,
+                          ]}
+                        >
+                          {getRoleDisplayName(r)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  )}
                 </View>
 
                 <View style={styles.switchGroup}>
@@ -633,6 +808,230 @@ export default function AdminScreen(): React.ReactElement {
                       <ActivityIndicator color="#fff" size="small" />
                     ) : (
                       <Text style={styles.createButtonText}>Создать</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      </View>
+    );
+  }
+
+  // 4. ROLES MANAGEMENT LAYOUT
+  if (mode === 'roles') {
+    if (isRolesLoading || isPermissionsLoading) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={COLORS.amber} />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.container}>
+        {/* subHeader */}
+        <View style={styles.subHeader}>
+          <TouchableOpacity style={styles.backButton} onPress={() => setMode('menu')}>
+            <Text style={styles.backButtonText}>Назад</Text>
+          </TouchableOpacity>
+          <Text style={styles.subHeaderTitle}>Роли и права</Text>
+        </View>
+
+        <FlatList
+          data={roles}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.userItem} onPress={() => handleOpenEditRole(item)}>
+              <View style={[styles.avatar, item.is_default && styles.avatarWarrior]}>
+                <Text style={[styles.avatarText, item.is_default && styles.avatarTextWarrior]}>
+                  {item.name[0].toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.userInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.userName}>{getRoleDisplayName(item.name)}</Text>
+                  {item.is_default && (
+                    <View style={[styles.roleBadge, styles.warriorBadge]}>
+                      <Text style={[styles.roleBadgeText, styles.warriorBadgeText]}>По умолчанию</Text>
+                    </View>
+                  )}
+                  {item.is_system && (
+                    <View style={[styles.roleBadge, styles.studentBadge, { marginLeft: 4 }]}>
+                      <Text style={[styles.roleBadgeText, styles.studentBadgeText]}>Системная</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.userEmail}>
+                  Права: {(item.permissions || []).join(', ') || 'нет прав'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={<Text style={styles.emptyText}>Роли не найдены</Text>}
+        />
+
+        {/* FAB Button to Add Role */}
+        <TouchableOpacity style={styles.fab} onPress={() => setCreateRoleVisible(true)}>
+          <Text style={styles.fabIcon}>+</Text>
+        </TouchableOpacity>
+
+        {/* CREATE ROLE MODAL */}
+        <Modal
+          visible={isCreateRoleVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setCreateRoleVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Новая роль</Text>
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="Название роли"
+                  placeholderTextColor={COLORS.textFaint}
+                  value={createRoleName}
+                  onChangeText={setCreateRoleName}
+                  autoCapitalize="words"
+                />
+
+                <Text style={styles.infoLabel}>Назначить права доступа:</Text>
+                <ScrollView style={{ maxHeight: 200, marginBottom: 20 }}>
+                  {permissions?.map((perm) => {
+                    const isChecked = createRolePermissions.includes(perm.key);
+                    return (
+                      <TouchableOpacity
+                        key={perm.id}
+                        style={styles.permissionSelectorRow}
+                        onPress={() => togglePermissionForCreate(perm.key)}
+                      >
+                        <Switch
+                          value={isChecked}
+                          onValueChange={() => togglePermissionForCreate(perm.key)}
+                          trackColor={{ false: COLORS.textFaint, true: COLORS.amber }}
+                          thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                          style={{ marginRight: 8 }}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.permissionKeyText}>{perm.key}</Text>
+                          <Text style={styles.permissionDescText}>{perm.description || 'Нет описания'}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setCreateRoleVisible(false)}
+                    disabled={createRoleMutation.isPending}
+                  >
+                    <Text style={styles.cancelButtonText}>Отмена</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.createButton]}
+                    onPress={handleCreateRole}
+                    disabled={createRoleMutation.isPending}
+                  >
+                    {createRoleMutation.isPending ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.createButtonText}>Создать</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        {/* EDIT ROLE MODAL */}
+        <Modal
+          visible={selectedRole !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedRole(null)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoidingView}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Права роли {getRoleDisplayName(editRoleName)}</Text>
+
+                <Text style={styles.infoLabel}>Название роли</Text>
+                <TextInput
+                  style={[styles.input, selectedRole?.is_system && styles.disabledInput]}
+                  value={editRoleName}
+                  onChangeText={setEditRoleName}
+                  editable={!selectedRole?.is_system}
+                  placeholder="Имя роли"
+                />
+
+                <Text style={styles.infoLabel}>Права доступа:</Text>
+                <ScrollView style={{ maxHeight: 200, marginBottom: 20 }}>
+                  {permissions?.map((perm) => {
+                    const isChecked = editRolePermissions.includes(perm.key);
+                    return (
+                      <TouchableOpacity
+                        key={perm.id}
+                        style={styles.permissionSelectorRow}
+                        onPress={() => togglePermissionForEdit(perm.key)}
+                      >
+                        <Switch
+                          value={isChecked}
+                          onValueChange={() => togglePermissionForEdit(perm.key)}
+                          trackColor={{ false: COLORS.textFaint, true: COLORS.amber }}
+                          thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                          style={{ marginRight: 8 }}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.permissionKeyText}>{perm.key}</Text>
+                          <Text style={styles.permissionDescText}>{perm.description || 'Нет описания'}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setSelectedRole(null)}
+                    disabled={updateRoleMutation.isPending || makeDefaultRoleMutation.isPending}
+                  >
+                    <Text style={styles.cancelButtonText}>Закрыть</Text>
+                  </TouchableOpacity>
+
+                  {!selectedRole?.is_default && (
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.deleteButton, { backgroundColor: COLORS.amberSoft }]}
+                      onPress={handleMakeDefaultRole}
+                      disabled={updateRoleMutation.isPending || makeDefaultRoleMutation.isPending}
+                    >
+                      <Text style={styles.deleteButtonText}>По умолчанию</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.createButton]}
+                    onPress={handleUpdateRole}
+                    disabled={updateRoleMutation.isPending || makeDefaultRoleMutation.isPending}
+                  >
+                    {updateRoleMutation.isPending ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.createButtonText}>Сохранить</Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -889,6 +1288,26 @@ const styles = StyleSheet.create({
   },
   menuItemSub: {
     fontSize: 11.5,
+    fontFamily: FONTS.body,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+
+  // Permission selection styles
+  permissionSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderSoft || '#F4F1EA',
+  },
+  permissionKeyText: {
+    fontSize: 13,
+    fontFamily: FONTS.monoMedium,
+    color: COLORS.textPrimary,
+  },
+  permissionDescText: {
+    fontSize: 11,
     fontFamily: FONTS.body,
     color: COLORS.textSecondary,
     marginTop: 2,

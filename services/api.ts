@@ -10,6 +10,8 @@ import {
   MsgResponse,
   CreateUserRequest,
   FastApiValidationErrorItem,
+  AppRole,
+  AppPermission,
 } from '../types/shared';
 import { Observe } from 'expo-observe';
 
@@ -246,5 +248,30 @@ export const api = {
           name: name,
         }),
       }),
+  },
+
+  roles: {
+    list: (): Promise<AppRole[]> =>
+      request<AppRole[]>('/roles/list'),
+
+    create: (name: string, permissions: string[]): Promise<AppRole> =>
+      request<AppRole>('/roles/create', {
+        method: 'POST',
+        body: JSON.stringify({ name, permissions }),
+      }),
+
+    update: (roleId: string, name: string, permissions: string[]): Promise<AppRole> =>
+      request<AppRole>(`/roles/${roleId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name, permissions }),
+      }),
+
+    makeDefault: (roleId: string): Promise<AppRole> =>
+      request<AppRole>(`/roles/${roleId}/default`, {
+        method: 'POST',
+      }),
+
+    listPermissions: (): Promise<AppPermission[]> =>
+      request<AppPermission[]>('/permissions/list'),
   },
 };

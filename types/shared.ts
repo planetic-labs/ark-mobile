@@ -104,3 +104,17 @@ export interface FastApiValidationErrorItem {
   msg: string;
   type: string;
 }
+
+export interface AppPermission {
+  id: string;
+  key: string;
+  description: string | null;
+}
+
+export interface AppRole {
+  id: string;
+  name: string;
+  is_system: boolean;
+  is_default: boolean;
+  permissions: string[];
+}
