@@ -55,8 +55,15 @@ const scheduleNotificationPack = async (
   const ids: string[] = [];
   const soundName = sound === 'siren_satsang' ? 'siren_satsang.wav' : 'siren_warrior.wav';
   
-  // Планируем уведомления на 20 циклов вперед
-  for (let i = 0; i < 20; i++) {
+  // Рассчитываем количество циклов на 10 часов вперед (10 * 3600 секунд)
+  // Ограничиваем сверху 50 уведомлениями, так как на iOS жесткий лимит составляет 64 уведомления на приложение,
+  // а на Android большое количество точных будильников может расцениваться как спам.
+  const hoursToSchedule = 10;
+  const desiredSeconds = hoursToSchedule * 3600;
+  const calculatedCycles = Math.ceil(desiredSeconds / duration);
+  const maxCycles = Math.min(50, calculatedCycles);
+  
+  for (let i = 0; i < maxCycles; i++) {
     const seconds = startTimeLeft + i * duration;
     try {
       const id = await Notifications.scheduleNotificationAsync({
