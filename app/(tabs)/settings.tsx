@@ -153,7 +153,6 @@ export default function SettingsScreen() {
     const realTargetIndex = tabSettings.indexOf(targetTabName);
 
     if (realCurrentIndex !== -1 && realTargetIndex !== -1 && realCurrentIndex !== realTargetIndex) {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const newSettings = [...tabSettings];
       const temp = newSettings[realCurrentIndex];
       newSettings[realCurrentIndex] = newSettings[realTargetIndex];
