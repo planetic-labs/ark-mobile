@@ -9,6 +9,7 @@ import { ObserveRoot, useObserve, Observe } from 'expo-observe';
 
 Observe.configure({
   integrations: { 'expo-router': true },
+  dispatchInDebug: true,
 });
 
 import { useOfflineQueue } from '../hooks/useOfflineQueue';
