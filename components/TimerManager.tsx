@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useVideoPlayer } from 'expo-video';
+import * as Notifications from 'expo-notifications';
 import { useTimerStore } from '../stores/useTimerStore';
 
 export function TimerManager(): null {
@@ -46,6 +47,28 @@ export function TimerManager(): null {
       subscription.remove();
     };
   }, [syncTimeLeft]);
+
+  // Синхронизация при старте или очистка застрявших в системе уведомлений, если таймер выключен
+  useEffect(() => {
+    if (isActive) {
+      syncTimeLeft(true);
+    } else {
+      (async () => {
+        try {
+          const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+          const timerNotificationIds = scheduled
+            .filter((n) => n.content.title === 'Практика завершена' || n.content.title === 'Практика продолжается')
+            .map((n) => n.identifier);
+          
+          for (const id of timerNotificationIds) {
+            await Notifications.cancelScheduledNotificationAsync(id);
+          }
+        } catch (e) {
+          console.log('Failed to clear stuck notifications on startup', e);
+        }
+      })();
+    }
+  }, [isActive, syncTimeLeft]);
 
   // Эффект для воспроизведения звука
   useEffect(() => {

@@ -199,6 +199,10 @@ export const useTimerStore = create<TimerState>()(
       partialize: (state) => ({
         duration: state.duration,
         sound: state.sound,
+        isActive: state.isActive,
+        timeLeft: state.timeLeft,
+        endTime: state.endTime,
+        notificationIds: state.notificationIds,
       }),
     }
   )
