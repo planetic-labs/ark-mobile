@@ -51,8 +51,10 @@ export function TimerManager(): null {
   useEffect(() => {
     if (isFinished) {
       if (sound === 'siren_satsang') {
+        satsangPlayer.currentTime = 0;
         satsangPlayer.play();
       } else if (sound === 'siren_warrior') {
+        warriorPlayer.currentTime = 0;
         warriorPlayer.play();
       }
       resetFinished();
