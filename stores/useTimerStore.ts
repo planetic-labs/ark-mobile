@@ -128,6 +128,9 @@ export const useTimerStore = create<TimerState>()(
               timeLeft: nextTimeLeft,
             },
           });
+          Observe.dispatchEvents().catch((err) => {
+            console.warn('[Observe] Failed to dispatch events:', err);
+          });
         } catch (e) {
           console.warn('[Observe] Failed to log timer.started event:', e);
         }
