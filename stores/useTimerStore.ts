@@ -24,8 +24,8 @@ interface TimerState {
   isActive: boolean;
   timeLeft: number;
   isFinished: boolean;
-  endTime: number | null; // timestamp окончания
-  notificationId: string | null;
+  endTime: number | null; // timestamp окончания первого цикла
+  notificationIds: string[]; // ID всех запланированных уведомлений
 
   setDuration: (seconds: number) => void;
   setSound: (sound: TimerSound) => void;
@@ -37,6 +37,48 @@ interface TimerState {
   resetFinished: () => void;
 }
 
+const cancelAllNotifications = async (ids: string[]): Promise<void> => {
+  for (const id of ids) {
+    try {
+      await Notifications.cancelScheduledNotificationAsync(id);
+    } catch (e) {
+      console.log('Failed to cancel notification', id, e);
+    }
+  }
+};
+
+const scheduleNotificationPack = async (
+  startTimeLeft: number,
+  duration: number,
+  sound: TimerSound
+): Promise<string[]> => {
+  const ids: string[] = [];
+  const soundName = sound === 'siren_satsang' ? 'siren_satsang.wav' : 'siren_warrior.wav';
+  
+  // Планируем уведомления на 20 циклов вперед
+  for (let i = 0; i < 20; i++) {
+    const seconds = startTimeLeft + i * duration;
+    try {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: i === 0 ? 'Практика завершена' : 'Практика продолжается',
+          body: i === 0 ? 'Время вашей медитации подошло к концу.' : `Завершился цикл ${i + 1}.`,
+          sound: soundName,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds,
+          channelId: `timer_${sound}`,
+        },
+      });
+      ids.push(id);
+    } catch (error) {
+      console.error(`Failed to schedule notification for cycle ${i}:`, error);
+    }
+  }
+  return ids;
+};
+
 export const useTimerStore = create<TimerState>()(
   persist(
     (set, get) => ({
@@ -46,7 +88,7 @@ export const useTimerStore = create<TimerState>()(
       timeLeft: 300,
       isFinished: false,
       endTime: null,
-      notificationId: null,
+      notificationIds: [],
 
       setDuration: (seconds) => {
         set({ duration: seconds });
@@ -58,88 +100,51 @@ export const useTimerStore = create<TimerState>()(
       setSound: (sound) => set({ sound }),
 
       startTimer: async () => {
-        const { timeLeft, duration, sound, notificationId } = get();
+        const { timeLeft, duration, sound, notificationIds } = get();
 
-        // Снимаем старое уведомление, если оно было
-        if (notificationId) {
-          try {
-            await Notifications.cancelScheduledNotificationAsync(notificationId);
-          } catch (e) {
-            console.log('Failed to cancel old notification', e);
-          }
+        // Снимаем старые уведомления, если они были
+        if (notificationIds.length > 0) {
+          await cancelAllNotifications(notificationIds);
         }
 
         const nextTimeLeft = timeLeft <= 0 ? duration : timeLeft;
         const endTime = Date.now() + nextTimeLeft * 1000;
 
-        let newNotificationId: string | null = null;
-        try {
-          const soundName = sound === 'siren_satsang' ? 'siren_satsang.wav' : 'siren_warrior.wav';
-          newNotificationId = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'Практика завершена',
-              body: 'Время вашей медитации подошло к концу.',
-              sound: soundName,
-            },
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-              seconds: nextTimeLeft,
-              channelId: `timer_${sound}`,
-            },
-          });
-        } catch (error) {
-          console.error('Failed to schedule local notification for timer:', error);
-          Observe.logEvent('timer.notification_failed', {
-            severity: 'error',
-            attributes: {
-              duration: nextTimeLeft,
-              sound,
-              error: String(error),
-            },
-          });
-        }
+        const newNotificationIds = await scheduleNotificationPack(nextTimeLeft, duration, sound);
 
         set({
           isActive: true,
           timeLeft: nextTimeLeft,
           endTime,
-          notificationId: newNotificationId,
+          notificationIds: newNotificationIds,
           isFinished: false,
         });
       },
 
       stopTimer: async () => {
-        const { notificationId } = get();
-        if (notificationId) {
-          try {
-            await Notifications.cancelScheduledNotificationAsync(notificationId);
-          } catch (e) {
-            console.log('Failed to cancel notification on stop', e);
-          }
+        const { notificationIds } = get();
+        if (notificationIds.length > 0) {
+          await cancelAllNotifications(notificationIds);
         }
-        set({ isActive: false, notificationId: null, endTime: null });
+        set({ isActive: false, notificationIds: [], endTime: null });
       },
 
       resetTimer: async () => {
-        const { duration, notificationId } = get();
-        if (notificationId) {
-          try {
-            await Notifications.cancelScheduledNotificationAsync(notificationId);
-          } catch (e) {
-            console.log('Failed to cancel notification on reset', e);
-          }
+        const { duration, notificationIds } = get();
+        if (notificationIds.length > 0) {
+          await cancelAllNotifications(notificationIds);
         }
         set({
           isActive: false,
           timeLeft: duration,
           endTime: null,
-          notificationId: null,
+          notificationIds: [],
           isFinished: false,
         });
       },
 
       syncTimeLeft: (wasInBackground) => {
-        const { endTime, duration, isActive, sound, notificationId } = get();
+        const { endTime, duration, isActive, sound, notificationIds } = get();
         if (!isActive || !endTime) return;
         
         const now = Date.now();
@@ -152,36 +157,17 @@ export const useTimerStore = create<TimerState>()(
           const nextEndTime = endTime + extraCycles * cycleMs;
           const nextTimeLeft = Math.max(0, Math.floor((nextEndTime - now) / 1000));
           
-          // Отменяем старое уведомление и планируем новое асинхронно
+          // Отменяем старые уведомления и планируем новую пачку асинхронно
           (async () => {
-            if (notificationId) {
-              try {
-                await Notifications.cancelScheduledNotificationAsync(notificationId);
-              } catch (e) {
-                console.log('Failed to cancel finished notification', e);
-              }
+            if (notificationIds.length > 0) {
+              await cancelAllNotifications(notificationIds);
             }
-            
-            let newNotificationId: string | null = null;
-            try {
-              const soundName = sound === 'siren_satsang' ? 'siren_satsang.wav' : 'siren_warrior.wav';
-              newNotificationId = await Notifications.scheduleNotificationAsync({
-                content: {
-                  title: 'Практика продолжается',
-                  body: 'Начался новый цикл таймера.',
-                  sound: soundName,
-                },
-                trigger: {
-                  type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-                  seconds: nextTimeLeft <= 0 ? duration : nextTimeLeft,
-                  channelId: `timer_${sound}`,
-                },
-              });
-            } catch (error) {
-              console.error('Failed to reschedule local notification for timer:', error);
-            }
-            
-            set({ notificationId: newNotificationId });
+            const newNotificationIds = await scheduleNotificationPack(
+              nextTimeLeft <= 0 ? duration : nextTimeLeft,
+              duration,
+              sound
+            );
+            set({ notificationIds: newNotificationIds });
           })();
           
           set({
