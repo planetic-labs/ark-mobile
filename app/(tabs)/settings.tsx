@@ -128,11 +128,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleDragEnd = (currentIndex: number, dy: number): boolean => {
-    const ITEM_HEIGHT = 56;
-    const offset = Math.round(dy / ITEM_HEIGHT);
-    if (offset === 0) return false;
-
+  const handleDragUpdate = (startIndex: number, offset: number, currentDy: number) => {
     const ALL_TABS_METADATA = [
       { name: 'index', title: 'Чат', canBeHidden: true },
       { name: 'navigator', title: 'Навигатор', canBeHidden: true },
@@ -147,25 +143,27 @@ export default function SettingsScreen() {
       .map((name) => ALL_TABS_METADATA.find((t) => t.name === name))
       .filter((t): t is typeof ALL_TABS_METADATA[0] => !!t && (!t.adminOnly || isAdmin));
 
-    const targetActiveIndex = Math.max(0, Math.min(activeTabs.length - 1, currentIndex + offset));
-    if (targetActiveIndex === currentIndex) return false;
+    const targetActiveIndex = Math.max(0, Math.min(activeTabs.length - 1, startIndex + offset));
+    if (targetActiveIndex === startIndex) return;
 
-    const currentTabName = activeTabs[currentIndex].name;
+    const currentTabName = activeTabs[startIndex].name;
     const targetTabName = activeTabs[targetActiveIndex].name;
 
     const realCurrentIndex = tabSettings.indexOf(currentTabName);
     const realTargetIndex = tabSettings.indexOf(targetTabName);
 
-    if (realCurrentIndex !== -1 && realTargetIndex !== -1) {
+    if (realCurrentIndex !== -1 && realTargetIndex !== -1 && realCurrentIndex !== realTargetIndex) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const newSettings = [...tabSettings];
       const temp = newSettings[realCurrentIndex];
       newSettings[realCurrentIndex] = newSettings[realTargetIndex];
       newSettings[realTargetIndex] = temp;
       setTabSettings(newSettings);
-      return true;
     }
-    return false;
+  };
+
+  const handleDragEnd = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
   };
 
   const handleLogout = async () => {
@@ -305,7 +303,9 @@ export default function SettingsScreen() {
                     canBeHidden={tab.canBeHidden !== false}
                     isVisible={isVisible}
                     onToggle={() => toggleTabVisibility(tab.name)}
-                    onDragEnd={(dy) => handleDragEnd(actualIndex, dy)}
+                    actualIndex={actualIndex}
+                    onDragUpdate={handleDragUpdate}
+                    onDragEnd={handleDragEnd}
                     itemHeight={56}
                   />
                 );

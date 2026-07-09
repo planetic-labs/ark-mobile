@@ -27,7 +27,9 @@ interface DraggableTabItemProps {
   canBeHidden: boolean;
   isVisible: boolean;
   onToggle: () => void;
-  onDragEnd: (dragOffset: number) => boolean;
+  actualIndex: number;
+  onDragUpdate: (startIndex: number, offset: number, currentDy: number) => void;
+  onDragEnd: () => void;
   itemHeight: number;
 }
 
@@ -36,11 +38,21 @@ export function DraggableTabItem({
   canBeHidden,
   isVisible,
   onToggle,
+  actualIndex,
+  onDragUpdate,
   onDragEnd,
   itemHeight,
 }: DraggableTabItemProps): React.ReactElement {
   const pan = useRef(new Animated.ValueXY()).current;
   const [activeDrag, setActiveDrag] = useState(false);
+  const startIndexRef = useRef<number | null>(null);
+
+  // Сохраняем свежие ссылки на пропсы, чтобы избежать замыкания устаревших значений в PanResponder
+  const actualIndexRef = useRef(actualIndex);
+  actualIndexRef.current = actualIndex;
+
+  const onDragUpdateRef = useRef(onDragUpdate);
+  onDragUpdateRef.current = onDragUpdate;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -48,33 +60,39 @@ export function DraggableTabItem({
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         setActiveDrag(true);
+        startIndexRef.current = actualIndexRef.current;
         pan.setValue({ x: 0, y: 0 });
       },
-      onPanResponderMove: Animated.event(
-        [null, { dx: pan.x, dy: pan.y }],
-        { useNativeDriver: false }
-      ),
-      onPanResponderRelease: (e, gestureState) => {
-        setActiveDrag(false);
-        const didChange = onDragEnd(gestureState.dy);
-        if (didChange) {
-          // Если позиция изменилась, сбрасываем смещение мгновенно.
-          // LayoutAnimation в родителе сделает переход бесшовным.
-          pan.setValue({ x: 0, y: 0 });
+      onPanResponderMove: (e, gestureState) => {
+        if (startIndexRef.current !== null) {
+          const offset = Math.round(gestureState.dy / itemHeight);
+          onDragUpdateRef.current(startIndexRef.current, offset, gestureState.dy);
+          
+          // Компенсируем смещение pan.y на разницу индексов в макете, 
+          // чтобы элемент не прыгал при изменении его порядка на лету
+          const indexDiff = actualIndexRef.current - startIndexRef.current;
+          pan.setValue({ x: 0, y: gestureState.dy - itemHeight * indexDiff });
         } else {
-          // Иначе плавно возвращаем элемент на место старта
-          Animated.spring(pan, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false,
-          }).start();
+          pan.setValue({ x: 0, y: gestureState.dy });
         }
       },
-      onPanResponderTerminate: () => {
+      onPanResponderRelease: () => {
         setActiveDrag(false);
+        startIndexRef.current = null;
         Animated.spring(pan, {
           toValue: { x: 0, y: 0 },
           useNativeDriver: false,
         }).start();
+        onDragEnd();
+      },
+      onPanResponderTerminate: () => {
+        setActiveDrag(false);
+        startIndexRef.current = null;
+        Animated.spring(pan, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: false,
+        }).start();
+        onDragEnd();
       },
     })
   ).current;
