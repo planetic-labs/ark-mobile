@@ -12,7 +12,6 @@ import { settingsStyles as styles } from '../../styles/settingsStyles';
 import { useTimerStore } from '../../stores/useTimerStore';
 import { useObserve } from 'expo-observe';
 import { useUIStore } from '../../stores/useUIStore';
-import { DraggableTabItem } from '../../components/DraggableTabItem';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -128,41 +127,17 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleDragUpdate = (startIndex: number, offset: number, currentDy: number) => {
-    const ALL_TABS_METADATA = [
-      { name: 'index', title: 'Чат', canBeHidden: true },
-      { name: 'navigator', title: 'Навигатор', canBeHidden: true },
-      { name: 'video', title: 'Видео', canBeHidden: true },
-      { name: 'materials', title: 'Материалы', canBeHidden: true },
-      { name: 'chronicles', title: 'Летописи', canBeHidden: true },
-      { name: 'admin', title: 'Админка', adminOnly: true },
-      { name: 'settings', title: 'Настройки', canBeHidden: false },
-    ];
-    const isAdmin = currentUser?.role === 'ADMIN';
-    const activeTabs = tabSettings
-      .map((name) => ALL_TABS_METADATA.find((t) => t.name === name))
-      .filter((t): t is typeof ALL_TABS_METADATA[0] => !!t && (!t.adminOnly || isAdmin));
-
-    const targetActiveIndex = Math.max(0, Math.min(activeTabs.length - 1, startIndex + offset));
-    if (targetActiveIndex === startIndex) return;
-
-    const currentTabName = activeTabs[startIndex].name;
-    const targetTabName = activeTabs[targetActiveIndex].name;
-
-    const realCurrentIndex = tabSettings.indexOf(currentTabName);
-    const realTargetIndex = tabSettings.indexOf(targetTabName);
-
-    if (realCurrentIndex !== -1 && realTargetIndex !== -1 && realCurrentIndex !== realTargetIndex) {
-      const newSettings = [...tabSettings];
-      const temp = newSettings[realCurrentIndex];
-      newSettings[realCurrentIndex] = newSettings[realTargetIndex];
-      newSettings[realTargetIndex] = temp;
-      setTabSettings(newSettings);
-    }
-  };
-
-  const handleDragEnd = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
+  const moveTab = (index: number, direction: 'up' | 'down') => {
+    const newSettings = [...tabSettings];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newSettings.length) return;
+    
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const temp = newSettings[index];
+    newSettings[index] = newSettings[targetIndex];
+    newSettings[targetIndex] = temp;
+    
+    setTabSettings(newSettings);
   };
 
   const handleLogout = async () => {
@@ -294,35 +269,43 @@ export default function SettingsScreen() {
               const isVisible = tab.canBeHidden === false || tabSettings.includes(tab.name);
               const actualIndex = tabSettings.indexOf(tab.name);
               
-              if (actualIndex !== -1) {
-                return (
-                  <DraggableTabItem
-                    key={tab.name}
-                    title={tab.title}
-                    canBeHidden={tab.canBeHidden !== false}
-                    isVisible={isVisible}
-                    onToggle={() => toggleTabVisibility(tab.name)}
-                    actualIndex={actualIndex}
-                    onDragUpdate={handleDragUpdate}
-                    onDragEnd={handleDragEnd}
-                    itemHeight={56}
-                  />
-                );
-              }
-              
               return (
                 <View key={tab.name} style={[styles.menuItem, listIndex === settingsTabsList.length - 1 && styles.menuItemLast, { height: 56 }]}>
                   <View style={styles.menuItemLeft}>
-                    <Text style={[styles.menuItemText, { marginLeft: 44 }]}>
+                    {actualIndex !== -1 && (
+                      <View style={{ flexDirection: 'row', marginRight: 16, gap: 12 }}>
+                        <TouchableOpacity 
+                          disabled={actualIndex === 0} 
+                          onPress={() => moveTab(actualIndex, 'up')}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          style={{ opacity: actualIndex === 0 ? 0.25 : 1, padding: 4 }}
+                        >
+                          <Text style={{ fontSize: 18, color: COLORS.amber, fontWeight: 'bold' }}>↑</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          disabled={actualIndex === activeTabs.length - 1} 
+                          onPress={() => moveTab(actualIndex, 'down')}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          style={{ opacity: actualIndex === activeTabs.length - 1 ? 0.25 : 1, padding: 4 }}
+                        >
+                          <Text style={{ fontSize: 18, color: COLORS.amber, fontWeight: 'bold' }}>↓</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <Text style={[styles.menuItemText, { marginLeft: actualIndex !== -1 ? 0 : 54 }]}>
                       {tab.title}
                     </Text>
                   </View>
-                  <Switch
-                    value={isVisible}
-                    onValueChange={() => toggleTabVisibility(tab.name)}
-                    trackColor={{ false: '#ECE7DD', true: COLORS.amberTint }}
-                    thumbColor={isVisible ? COLORS.amber : '#A69D8F'}
-                  />
+                  {tab.canBeHidden !== false ? (
+                    <Switch
+                      value={isVisible}
+                      onValueChange={() => toggleTabVisibility(tab.name)}
+                      trackColor={{ false: '#ECE7DD', true: COLORS.amberTint }}
+                      thumbColor={isVisible ? COLORS.amber : '#A69D8F'}
+                    />
+                  ) : (
+                    <Text style={{ fontSize: 11, fontFamily: FONTS.mono, color: COLORS.textMuted }}>Обязательно</Text>
+                  )}
                 </View>
               );
             })}
