@@ -21,9 +21,11 @@ interface UIState {
   theme: Theme;
   // Показывать ли индикатор оффлайн-режима
   isOfflineBannerVisible: boolean;
+  tabSettings: string[]; // Порядок и видимость табов
 
   setTheme: (theme: Theme) => void;
   setOfflineBannerVisible: (visible: boolean) => void;
+  setTabSettings: (settings: string[]) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -31,16 +33,21 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       theme: 'light',
       isOfflineBannerVisible: false,
+      tabSettings: ['index', 'navigator', 'video', 'materials', 'chronicles', 'settings'],
 
       setTheme: (theme) => set({ theme }),
       setOfflineBannerVisible: (visible) =>
         set({ isOfflineBannerVisible: visible }),
+      setTabSettings: (settings) => set({ tabSettings: settings }),
     }),
     {
       name: 'ui-storage',
       storage: createJSONStorage(() => zustandUIStorage),
-      // Персистируем только тему — баннер сбрасывается при рестарте
-      partialize: (state) => ({ theme: state.theme }),
+      // Персистируем тему и настройки вкладок
+      partialize: (state) => ({ 
+        theme: state.theme,
+        tabSettings: state.tabSettings,
+      }),
     }
   )
 );

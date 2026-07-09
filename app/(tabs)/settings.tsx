@@ -4,13 +4,14 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
-import { COLORS } from '../../constants/Config';
+import { COLORS, FONTS } from '../../constants/Config';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { settingsStyles as styles } from '../../styles/settingsStyles';
 import { useTimerStore } from '../../stores/useTimerStore';
 import { useObserve } from 'expo-observe';
+import { useUIStore } from '../../stores/useUIStore';
 
 // SVG Icons for Menu Items
 const BellIcon = ({ color }: { color: string }) => (
@@ -94,6 +95,32 @@ export default function SettingsScreen() {
   const startTimer = useTimerStore((state) => state.startTimer);
   const stopTimer = useTimerStore((state) => state.stopTimer);
   const resetTimer = useTimerStore((state) => state.resetTimer);
+
+  // Настройки табов из Zustand useUIStore
+  const tabSettings = useUIStore((state) => state.tabSettings);
+  const setTabSettings = useUIStore((state) => state.setTabSettings);
+
+  const toggleTabVisibility = (tabName: string) => {
+    if (tabSettings.includes(tabName)) {
+      if (tabName !== 'settings') {
+        setTabSettings(tabSettings.filter((t) => t !== tabName));
+      }
+    } else {
+      setTabSettings([...tabSettings, tabName]);
+    }
+  };
+
+  const moveTab = (index: number, direction: 'up' | 'down') => {
+    const newSettings = [...tabSettings];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newSettings.length) return;
+    
+    const temp = newSettings[index];
+    newSettings[index] = newSettings[targetIndex];
+    newSettings[targetIndex] = temp;
+    
+    setTabSettings(newSettings);
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -340,6 +367,77 @@ export default function SettingsScreen() {
             </View>
             <ChevronRight color={COLORS.textMuted} />
           </TouchableOpacity>
+        </View>
+
+        {/* Tab Bar Settings */}
+        <Text style={styles.sectionTitle}>Настройка нижнего меню</Text>
+        <View style={styles.menuGroup}>
+          {(() => {
+            const ALL_TABS_METADATA = [
+              { name: 'index', title: 'Чат', canBeHidden: true },
+              { name: 'navigator', title: 'Навигатор', canBeHidden: true },
+              { name: 'video', title: 'Видео', canBeHidden: true },
+              { name: 'materials', title: 'Материалы', canBeHidden: true },
+              { name: 'chronicles', title: 'Летописи', canBeHidden: true },
+              { name: 'admin', title: 'Админка', adminOnly: true },
+              { name: 'settings', title: 'Настройки', canBeHidden: false },
+            ];
+
+            const isAdmin = currentUser?.role === 'ADMIN';
+
+            const activeTabs = tabSettings
+              .map((name) => ALL_TABS_METADATA.find((t) => t.name === name))
+              .filter((t): t is typeof ALL_TABS_METADATA[0] => !!t && (!t.adminOnly || isAdmin));
+
+            const inactiveTabs = ALL_TABS_METADATA.filter(
+              (t) => !tabSettings.includes(t.name) && (!t.adminOnly || isAdmin)
+            );
+
+            const settingsTabsList = [...activeTabs, ...inactiveTabs];
+
+            return settingsTabsList.map((tab, listIndex) => {
+              const isVisible = tab.canBeHidden === false || tabSettings.includes(tab.name);
+              const actualIndex = tabSettings.indexOf(tab.name);
+              
+              return (
+                <View key={tab.name} style={[styles.menuItem, listIndex === settingsTabsList.length - 1 && styles.menuItemLast]}>
+                  <View style={styles.menuItemLeft}>
+                    {actualIndex !== -1 && (
+                      <View style={{ flexDirection: 'row', marginRight: 12, gap: 8 }}>
+                        <TouchableOpacity 
+                          disabled={actualIndex === 0} 
+                          onPress={() => moveTab(actualIndex, 'up')}
+                          style={{ opacity: actualIndex === 0 ? 0.25 : 1, padding: 2 }}
+                        >
+                          <Text style={{ fontSize: 16, color: COLORS.amber, fontWeight: 'bold' }}>↑</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          disabled={actualIndex === activeTabs.length - 1} 
+                          onPress={() => moveTab(actualIndex, 'down')}
+                          style={{ opacity: actualIndex === activeTabs.length - 1 ? 0.25 : 1, padding: 2 }}
+                        >
+                          <Text style={{ fontSize: 16, color: COLORS.amber, fontWeight: 'bold' }}>↓</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <Text style={[styles.menuItemText, { marginLeft: actualIndex !== -1 ? 0 : 44 }]}>
+                      {tab.title}
+                    </Text>
+                  </View>
+                  {tab.canBeHidden !== false ? (
+                    <Switch
+                      value={isVisible}
+                      onValueChange={() => toggleTabVisibility(tab.name)}
+                      trackColor={{ false: '#ECE7DD', true: COLORS.amberTint }}
+                      thumbColor={isVisible ? COLORS.amber : '#A69D8F'}
+                    />
+                  ) : (
+                    <Text style={{ fontSize: 11, fontFamily: FONTS.mono, color: COLORS.textMuted }}>Обязательно</Text>
+                  )}
+                </View>
+              );
+            });
+          })()}
         </View>
 
         {/* Actions Group */}

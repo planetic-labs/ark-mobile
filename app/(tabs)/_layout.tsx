@@ -8,6 +8,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { api } from '../../services/api';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useWebSocket } from '../../hooks/useWebSocket';
+import { useUIStore } from '../../stores/useUIStore';
 
 const ChatsIcon = ({ color }: { color: ColorValue }) => (
   <Svg width={23} height={23} viewBox="0 0 23 23" fill="none">
@@ -116,6 +117,26 @@ export default function TabsLayout() {
   const paddingBottom = hasBottomInset ? insets.bottom : (Platform.OS === 'ios' ? 24 : 12);
   const barHeight = (Platform.OS === 'ios' ? 52 : 56) + paddingBottom;
 
+  const tabSettings = useUIStore((state) => state.tabSettings);
+
+  const ALL_TABS = [
+    { name: 'index', title: 'Чат', canBeHidden: true },
+    { name: 'navigator', title: 'Навигатор', canBeHidden: true },
+    { name: 'video', title: 'Видео', canBeHidden: true },
+    { name: 'materials', title: 'Материалы', canBeHidden: true },
+    { name: 'chronicles', title: 'Летописи', canBeHidden: true },
+    { name: 'admin', title: 'Админка', adminOnly: true },
+    { name: 'settings', title: 'Настройки', canBeHidden: false },
+  ];
+
+  const orderedTabs = [...ALL_TABS].sort((a, b) => {
+    let indexA = tabSettings.indexOf(a.name);
+    let indexB = tabSettings.indexOf(b.name);
+    if (indexA === -1) indexA = 99;
+    if (indexB === -1) indexB = 99;
+    return indexA - indexB;
+  });
+
   return (
     <Tabs screenOptions={({ route }) => ({ 
       tabBarActiveTintColor: COLORS.amber,
@@ -158,58 +179,23 @@ export default function TabsLayout() {
         return null;
       }
     })}>
-      <Tabs.Screen 
-        name="navigator" 
-        options={{ 
-          title: 'Навигатор',
-          headerShown: true,
-        }} 
-      />
-      <Tabs.Screen 
-        name="index" 
-        options={{ 
-          title: 'Чат',
-          headerShown: true,
-        }} 
-      />
-      <Tabs.Screen 
-        name="materials" 
-        options={{ 
-          title: 'Материалы',
-          headerShown: true,
-        }} 
-      />
-      <Tabs.Screen 
-        name="admin" 
-        options={{ 
-          title: 'Админка',
-          headerShown: true,
-          href: isAdmin ? undefined : null,
-        }} 
-      />
-      <Tabs.Screen 
-        name="settings" 
-        options={{ 
-          title: 'Настройки',
-          headerShown: true,
-        }} 
-      />
-      <Tabs.Screen 
-        name="video" 
-        options={{ 
-          title: 'Видео',
-          headerShown: true,
-          href: null,
-        }} 
-      />
-      <Tabs.Screen 
-        name="chronicles" 
-        options={{ 
-          title: 'Летописи',
-          headerShown: true,
-          href: null,
-        }} 
-      />
+      {orderedTabs.map((tab) => {
+        const isVisible = tab.canBeHidden === false || tabSettings.includes(tab.name);
+        const hasAccess = !tab.adminOnly || isAdmin;
+        const shouldShowInBar = isVisible && hasAccess;
+
+        return (
+          <Tabs.Screen
+            key={tab.name}
+            name={tab.name}
+            options={{
+              title: tab.title,
+              headerShown: true,
+              href: shouldShowInBar ? undefined : null,
+            }}
+          />
+        );
+      })}
     </Tabs>
   );
 }
