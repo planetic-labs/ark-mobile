@@ -44,17 +44,30 @@ const branch = process.argv[branchIndex + 1];
 // Получаем коммиты
 let commits = '';
 try {
-  let tag = '';
+  let lastBumpHash = '';
   try {
-    tag = execSync('git describe --tags --abbrev=0', { encoding: 'utf8' }).trim();
+    lastBumpHash = execSync('git log --grep="chore: bump OTA update version to" -n 1 --format="%H"', { encoding: 'utf8' }).trim();
   } catch (e) {
-    // Тегов нет, это нормально
+    // Предыдущих коммитов бампа нет, это нормально
   }
 
-  if (tag) {
-    commits = execSync(`git log ${tag}..HEAD --oneline`, { encoding: 'utf8' }).trim();
-  } else {
-    commits = execSync('git log -n 15 --oneline', { encoding: 'utf8' }).trim();
+  if (lastBumpHash) {
+    commits = execSync(`git log ${lastBumpHash}..HEAD --oneline`, { encoding: 'utf8' }).trim();
+  }
+
+  if (!commits) {
+    let tag = '';
+    try {
+      tag = execSync('git describe --tags --abbrev=0', { encoding: 'utf8' }).trim();
+    } catch (e) {
+      // Тегов нет, это нормально
+    }
+
+    if (tag) {
+      commits = execSync(`git log ${tag}..HEAD --oneline`, { encoding: 'utf8' }).trim();
+    } else {
+      commits = execSync('git log -n 15 --oneline', { encoding: 'utf8' }).trim();
+    }
   }
 } catch (e) {
   console.error('Не удалось получить лог коммитов из git:', e.message);
