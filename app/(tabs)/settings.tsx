@@ -227,27 +227,27 @@ export default function SettingsScreen() {
 
   const getVersionInfo = (): string[] => {
     const pkgVersion = Constants.expoConfig?.version || '0.0.0';
-    const buildVersion = Platform.OS === 'ios'
-      ? Constants.expoConfig?.ios?.buildNumber
-      : Constants.expoConfig?.android?.versionCode;
-      
-    const buildStr = buildVersion ? ` (сборка ${buildVersion})` : '';
+    const channel = Updates.channel;
+    let envSuffix = '';
+    if (!channel) {
+      envSuffix = ' (dev)';
+    } else if (channel === 'preview') {
+      envSuffix = ' (preview)';
+    } else if (channel === 'development') {
+      envSuffix = ' (dev)';
+    } else if (channel === 'production') {
+      envSuffix = ''; // В продакшене выводим просто The Ark: vX.Y.Z без указания среды
+    }
     
     const infoLines = [
-      `Приложение: v${pkgVersion}${buildStr}`
+      `The Ark: v${pkgVersion}${envSuffix}`
     ];
 
-    if (Updates.channel) {
-      const updateIdStr = Updates.updateId ? ` [${Updates.updateId.substring(0, 8)}]` : '';
-      const dateStr = Updates.createdAt 
-        ? ` от ${new Date(Updates.createdAt).toLocaleDateString('ru-RU')} ${new Date(Updates.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
-        : '';
-      infoLines.push(`Канал обновлений: ${Updates.channel}${updateIdStr}`);
-      if (dateStr) {
-        infoLines.push(`Дата обновления: ${dateStr}`);
-      }
-    } else {
-      infoLines.push('Режим разработки (локальный запуск)');
+    if (Updates.createdAt) {
+      const date = new Date(Updates.createdAt);
+      const dateStr = date.toLocaleDateString('ru-RU');
+      const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      infoLines.push(`от ${dateStr} ${timeStr}`);
     }
 
     return infoLines;

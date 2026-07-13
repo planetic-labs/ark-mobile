@@ -439,6 +439,9 @@ export default function AdminScreen(): React.ReactElement {
           </TouchableOpacity>
           <Text style={styles.subHeaderTitle}>Участники</Text>
         </View>
+        <View style={styles.statsContainer}>
+          <Text style={styles.statsText}>Всего участников: {users?.length || 0}</Text>
+        </View>
 
         <FlatList
           data={users}
@@ -1311,5 +1314,17 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.body,
     color: COLORS.textSecondary,
     marginTop: 2,
+  },
+  statsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: COLORS.bgSurface || '#FCFAF5',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderSoft || '#F4F1EA',
+  },
+  statsText: {
+    fontSize: 13,
+    fontFamily: FONTS.bodyMedium,
+    color: COLORS.textSecondary,
   },
 });
