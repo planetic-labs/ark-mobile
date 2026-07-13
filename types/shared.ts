@@ -31,7 +31,8 @@ export interface Chat {
   name: string | null;
   is_group: boolean;
   created_at: string; // ISO Date
-  members?: ChatMember[];
+  members?: User[];
+  last_message?: Message | null;
 }
 
 export interface Message {

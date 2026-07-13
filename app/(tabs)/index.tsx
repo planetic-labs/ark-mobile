@@ -1,20 +1,20 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import React, { useMemo, useEffect } from 'react';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { router, Tabs } from 'expo-router';
 import { api } from '../../services/api';
 import { COLORS } from '../../constants/Config';
-import { getChatDecoration } from '../../constants/chatDecorations';
 import { chatListStyles as styles } from '../../styles/chatListStyles';
 import { useObserve } from 'expo-observe';
+import { useAuthStore } from '../../stores/useAuthStore';
 import Svg, { Path } from 'react-native-svg';
-
-const TABS = ['Мастер', 'Основные', 'Воины', 'Команда', 'Ретрит'] as const;
+import type { Chat } from '../../types/shared';
 
 export default function ChatListScreen(): React.ReactElement {
-  const [activeTab, setActiveTab] = useState<typeof TABS[number]>('Основные');
   const { markInteractive } = useObserve();
-  const { data: chats, isLoading, error, refetch } = useQuery({
+  const currentUser = useAuthStore((state) => state.currentUser);
+
+  const { data: chats, isLoading, error } = useQuery({
     queryKey: ['chats'],
     queryFn: api.messaging.listChats,
   });
@@ -25,30 +25,67 @@ export default function ChatListScreen(): React.ReactElement {
     }
   }, [isLoading, markInteractive]);
 
-  const filteredChats = useMemo(() => {
+  // Сортировка чатов по дате последнего сообщения (самое свежее сверху)
+  const sortedChats = useMemo(() => {
     if (!chats) return [];
-    return chats.filter((chat) => {
-      const name = (chat.name || '').toLowerCase();
-      
-      switch (activeTab) {
-        case 'Мастер':
-          return name.includes('мастер') || name.includes('сатсанг');
-        case 'Воины':
-          return name.includes('воин') || name.includes('инкубатор') || name.includes('реанимация');
-        case 'Команда':
-          return name.includes('команда') || name.includes('админ') || name.includes('техническ') || name.includes('орг');
-        case 'Ретрит':
-          return name.includes('ретрит') || name.includes('практик') || name.includes('гудение');
-        case 'Основные':
-        default:
-          const isMaster = name.includes('мастер') || name.includes('сатсанг');
-          const isWarrior = name.includes('воин') || name.includes('инкубатор') || name.includes('реанимация');
-          const isTeam = name.includes('команда') || name.includes('админ') || name.includes('техническ') || name.includes('орг');
-          const isRetreat = name.includes('ретрит') || name.includes('практик') || name.includes('гудение');
-          return !isMaster && !isWarrior && !isTeam && !isRetreat;
-      }
+    return [...chats].sort((a, b) => {
+      const timeA = a.last_message ? new Date(a.last_message.created_at).getTime() : new Date(a.created_at).getTime();
+      const timeB = b.last_message ? new Date(b.last_message.created_at).getTime() : new Date(b.created_at).getTime();
+      return timeB - timeA;
     });
-  }, [chats, activeTab]);
+  }, [chats]);
+
+  const getChatName = (chat: Chat) => {
+    if (chat.is_group) {
+      return chat.name || 'Групповой чат';
+    }
+    // Для персонального чата находим собеседника (участника с id != currentUser.id)
+    const interlocutor = chat.members?.find((m) => m.id !== currentUser?.id);
+    if (interlocutor) {
+      return interlocutor.full_name || interlocutor.email.split('@')[0];
+    }
+    return chat.name || 'Личный чат';
+  };
+
+  const isChatWarrior = (chat: Chat) => {
+    if (chat.is_group) {
+      const nameLower = (chat.name || '').toLowerCase();
+      return nameLower.includes('воин') || nameLower.includes('инкубатор') || nameLower.includes('реанимация');
+    }
+    const interlocutor = chat.members?.find((m) => m.id !== currentUser?.id);
+    return interlocutor ? (interlocutor.role === 'WARRIOR' || interlocutor.role === 'MASTER' || interlocutor.role === 'ADMIN') : false;
+  };
+
+  const getLastMessageText = (chat: Chat) => {
+    if (chat.last_message) {
+      return chat.last_message.content;
+    }
+    return 'Открыть переписку';
+  };
+
+  const getLastMessageAuthorName = (chat: Chat) => {
+    if (!chat.last_message) return '';
+    const sender = chat.last_message.sender;
+    if (!sender) return '';
+    if (sender.id === currentUser?.id) return 'Вы:';
+    
+    const isWarrior = sender.role === 'WARRIOR' || sender.role === 'MASTER' || sender.role === 'ADMIN';
+    const prefix = isWarrior ? '◈ ' : '';
+    return `${prefix}${sender.full_name || sender.email.split('@')[0]}:`;
+  };
+
+  const getLastMessageTime = (chat: Chat) => {
+    if (!chat.last_message) {
+      const date = new Date(chat.created_at);
+      return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    }
+    const msgDate = new Date(chat.last_message.created_at);
+    const today = new Date();
+    if (msgDate.toDateString() === today.toDateString()) {
+      return msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return msgDate.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+  };
 
   if (isLoading) {
     return <View style={styles.centered}><ActivityIndicator size="large" color={COLORS.amber} /></View>;
@@ -58,9 +95,6 @@ export default function ChatListScreen(): React.ReactElement {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>Ошибка: {(error as Error).message}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryButtonText}>Повторить</Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -83,98 +117,50 @@ export default function ChatListScreen(): React.ReactElement {
         }}
       />
       <FlatList
-        data={filteredChats}
+        data={sortedChats}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <View style={styles.headerContainer}>
-            <View style={styles.summaryContainer}>
-              {[
-                { num: '3', label: 'неизученных\nотчёта', amber: true },
-                { num: '5', label: 'новых\nкорректировок', amber: true },
-                { num: '2', label: 'материала\nв Навигаторе', amber: false },
-              ].map((stat) => (
-                <View key={stat.label} style={styles.statChip}>
-                  <Text style={[styles.statNum, stat.amber && styles.amberText]}>{stat.num}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.banner}>
-              <View style={styles.bannerTextContainer}>
-                <Text style={styles.bannerEyebrow}>Сатсанг назначен</Text>
-                <Text style={styles.bannerTitle}>Сегодня в 20:00</Text>
-              </View>
-              <TouchableOpacity style={styles.bannerButton}>
-                <Text style={styles.bannerButtonText}>Войти</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.gtabsContainer}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gtabsScroll}>
-                {TABS.map((tab) => (
-                  <TouchableOpacity
-                    key={tab}
-                    onPress={() => setActiveTab(tab)}
-                    style={[styles.gtab, activeTab === tab && styles.gtabActive]}
-                  >
-                    <Text style={[styles.gtabText, activeTab === tab && styles.gtabTextActive]}>
-                      {tab}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        }
+        contentContainerStyle={{ paddingVertical: 8 }}
         renderItem={({ item }) => {
-          const deco = getChatDecoration(item.name || 'Personal');
+          const chatName = getChatName(item);
+          const isWarrior = isChatWarrior(item);
+          const avatarText = chatName[0].toUpperCase();
+          const lastMsgAuthor = getLastMessageAuthorName(item);
+          const lastMsgText = getLastMessageText(item);
+          const chatTime = getLastMessageTime(item);
+
           return (
             <TouchableOpacity
               style={styles.chatRow}
               onPress={() => router.push({ pathname: '/chat/[id]', params: { id: item.id } })}
             >
-              <View style={[styles.avatar, deco.isWarrior && styles.avatarWarrior]}>
-                <Text style={[styles.avatarText, deco.isWarrior && styles.avatarTextWarrior]}>
-                  {deco.avatar}
+              <View style={[styles.avatar, isWarrior && styles.avatarWarrior]}>
+                <Text style={[styles.avatarText, isWarrior && styles.avatarTextWarrior]}>
+                  {avatarText}
                 </Text>
               </View>
 
               <View style={styles.chatBody}>
                 <View style={styles.chatTop}>
-                  <Text style={[styles.chatName, deco.badge > 0 && styles.chatNameUnread]}>
-                    {deco.isWarrior && <Text style={{ color: COLORS.amberSoft }}>◈ </Text>}
-                    {item.name || 'Личный чат'}
+                  <Text style={styles.chatName}>
+                    {isWarrior && <Text style={{ color: COLORS.amberSoft }}>◈ </Text>}
+                    {chatName}
                   </Text>
-                  <Text style={styles.chatTime}>{deco.time}</Text>
+                  <Text style={styles.chatTime}>{chatTime}</Text>
                 </View>
 
-                <Text style={[styles.chatPreview, deco.badge > 0 && styles.chatPreviewUnread]} numberOfLines={1}>
-                  {deco.lastMsgAuthor && (
-                    <Text style={[styles.previewAuthor, deco.isWarrior && { color: COLORS.amberSoft }]}>
-                      {deco.lastMsgAuthor}{' '}
+                <Text style={styles.chatPreview} numberOfLines={1}>
+                  {lastMsgAuthor && (
+                    <Text style={[styles.previewAuthor, isWarrior && { color: COLORS.amberSoft }]}>
+                      {lastMsgAuthor}{' '}
                     </Text>
                   )}
-                  {deco.lastMsgText}
+                  {lastMsgText}
                 </Text>
-
-                {deco.practice && (
-                  <View style={styles.practiceContainer}>
-                    <View style={styles.practiceDot} />
-                    <Text style={styles.practiceText}>{deco.practice}</Text>
-                  </View>
-                )}
               </View>
-
-              {deco.badge > 0 && (
-                <View style={[styles.badgeContainer, deco.badgeColor === COLORS.amber && styles.badgeAmber]}>
-                  <Text style={styles.badgeText}>{deco.badge}</Text>
-                </View>
-              )}
             </TouchableOpacity>
           );
         }}
-        ListEmptyComponent={<Text style={styles.emptyText}>Нет чатов в категории "{activeTab}"</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>Нет чатов</Text>}
       />
     </View>
   );
