@@ -39,7 +39,8 @@ interface ReactionState {
 
 const DEFAULT_REACTION: ReactionState = { pray: 4, eye: 2, userPrayed: false, userEyed: false };
 
-function isReportFormat(text: string): boolean {
+function isReportFormat(text: string | null): boolean {
+  if (!text) return false;
   return (
     text.toLowerCase().startsWith('отчёт') ||
     text.toLowerCase().startsWith('отчет') ||
@@ -48,13 +49,22 @@ function isReportFormat(text: string): boolean {
   );
 }
 
-function parseReportItems(text: string): Array<{ num: string; text: string }> {
+function parseReportItems(text: string | null): Array<{ num: string; text: string }> {
+  if (!text) return [];
   const lines = text.split('\n').filter((l) => l.trim().length > 0);
   const items = lines.map((line) => {
     const match = line.match(/^(\d+[.)])\s*(.*)/);
     return match ? { num: match[1], text: match[2] } : { num: '•', text: line };
   });
   return items.length > 0 ? items : [{ num: '•', text }];
+}
+
+interface SendPayload {
+  content?: string | null;
+  message_type?: string;
+  file_url?: string | null;
+  duration?: number | null;
+  sticker_id?: string | null;
 }
 
 export default function ChatScreen(): React.ReactElement {
@@ -73,15 +83,39 @@ export default function ChatScreen(): React.ReactElement {
 
   const flatListRef = useRef<FlatList>(null);
 
-  // Новые сообщения через WebSocket → в кэш TanStack Query
+  // Новые сообщения через WebSocket → в кэш TanStack Query + пометка как доставленное
   useEffect(() => {
     if (lastEvent?.type !== 'message.new') return;
     const event = lastEvent as unknown as WebSocketNewMessageEvent;
     if (event.data.chat_id !== id) return;
+
+    // Если сообщение от собеседника, отправляем статус "delivered"
+    if (event.data.sender_id !== useAuthStore.getState().currentUser?.id) {
+      api.messaging.updateReceipts([event.data.id], 'delivered')
+        .catch((e) => console.log('Failed to mark message as delivered', e));
+    }
+
     queryClient.setQueryData<Message[]>(['messages', id], (old) => {
       if (!old) return [event.data];
       if (old.some((m) => m.id === event.data.id)) return old;
       return [...old, event.data];
+    });
+  }, [lastEvent, id, queryClient]);
+
+  // Обновление статусов доставки/прочтения сообщений через WebSocket
+  useEffect(() => {
+    if (lastEvent?.type !== 'message.receipt_updated') return;
+    const event = lastEvent as any;
+    if (event.data.chat_id !== id) return;
+
+    queryClient.setQueryData<Message[]>(['messages', id], (old) => {
+      if (!old) return old;
+      return old.map((msg) => {
+        if (msg.id === event.data.message_id) {
+          return { ...msg, status: event.data.status };
+        }
+        return msg;
+      });
     });
   }, [lastEvent, id, queryClient]);
 
@@ -106,6 +140,31 @@ export default function ChatScreen(): React.ReactElement {
     enabled: !!id && id !== 'undefined',
   });
 
+  // Автоматическая пометка входящих сообщений как прочитанных при просмотре чата
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+    const currentUserId = useAuthStore.getState().currentUser?.id;
+    const unreadMsgIds = messages
+      .filter((m) => m.sender_id !== currentUserId && m.status !== 'read')
+      .map((m) => m.id);
+
+    if (unreadMsgIds.length > 0) {
+      api.messaging.updateReceipts(unreadMsgIds, 'read')
+        .then(() => {
+          queryClient.setQueryData<Message[]>(['messages', id], (old) => {
+            if (!old) return old;
+            return old.map((m) => {
+              if (unreadMsgIds.includes(m.id)) {
+                return { ...m, status: 'read' };
+              }
+              return m;
+            });
+          });
+        })
+        .catch((e) => console.log('Failed to mark messages as read', e));
+    }
+  }, [messages, id, queryClient]);
+
   useEffect(() => {
     if (!isLoading) {
       markInteractive();
@@ -128,6 +187,8 @@ export default function ChatScreen(): React.ReactElement {
       content: pm.content,
       parent_id: null,
       created_at: pm.createdAt,
+      message_type: 'text',
+      status: 'sent',
     }));
     return [...serverMsgs, ...localMsgs];
   }, [messages, pendingMessages]);
@@ -144,7 +205,7 @@ export default function ChatScreen(): React.ReactElement {
   const { data: users } = useQuery({
     queryKey: ['users'],
     queryFn: api.users.listAll,
-    staleTime: 10 * 60 * 1_000, // пользователи меняются реже
+    staleTime: 10 * 60 * 1_000,
   });
 
   const { data: chats } = useQuery({
@@ -155,26 +216,32 @@ export default function ChatScreen(): React.ReactElement {
   const currentChat = chats?.find((c) => c.id === id);
 
   const sendMutation = useMutation({
-    mutationFn: (text: string) => api.messaging.sendMessage(id as string, text),
-    onMutate: async (newText) => {
-      // Отменяем исходящие рефетчи, чтобы они не перезаписали наш оптимистичный апдейт
+    mutationFn: (payload: SendPayload) =>
+      api.messaging.sendMessage(id as string, payload.content || null, {
+        message_type: payload.message_type,
+        file_url: payload.file_url,
+        duration: payload.duration,
+        sticker_id: payload.sticker_id,
+      }),
+    onMutate: async (payload) => {
       await queryClient.cancelQueries({ queryKey: ['messages', id] });
-
-      // Сохраняем предыдущее состояние
       const previousMessages = queryClient.getQueryData<Message[]>(['messages', id]);
 
-      // Создаем временное сообщение
       const tempId = `temp_${Date.now()}`;
       const tempMessage: Message = {
         id: tempId,
         chat_id: id as string,
         sender_id: useAuthStore.getState().currentUser?.id || 'me',
-        content: newText,
+        content: payload.content || null,
         parent_id: null,
         created_at: new Date().toISOString(),
+        message_type: payload.message_type || 'text',
+        file_url: payload.file_url,
+        duration: payload.duration,
+        sticker_id: payload.sticker_id,
+        status: 'sent',
       };
 
-      // Оптимистично добавляем сообщение в кэш
       queryClient.setQueryData<Message[]>(['messages', id], (old) => {
         if (!old) return [tempMessage];
         return [...old, tempMessage];
@@ -183,21 +250,19 @@ export default function ChatScreen(): React.ReactElement {
       return { previousMessages, tempId };
     },
     onSuccess: (data, variables, context) => {
-      // Заменяем временное сообщение на реальное в кэше
       queryClient.setQueryData<Message[]>(['messages', id], (old) => {
         if (!old) return [data];
         return old.map((m) => (m.id === context?.tempId ? data : m));
       });
-      // Инвалидируем для синхронизации
       queryClient.invalidateQueries({ queryKey: ['messages', id] });
     },
     onError: (err, variables, context) => {
-      // При ошибке (нет сети) восстанавливаем предыдущие сообщения
       if (context?.previousMessages) {
         queryClient.setQueryData(['messages', id], context.previousMessages);
       }
-      // И кладем в оффлайн очередь
-      enqueueMessage(id as string, variables);
+      if (variables.content) {
+        enqueueMessage(id as string, variables.content);
+      }
       queryClient.invalidateQueries({ queryKey: ['pendingMessages', id] });
     },
   });
@@ -206,8 +271,20 @@ export default function ChatScreen(): React.ReactElement {
     const textToSend = content.trim();
     if (!textToSend || sendMutation.isPending) return;
     setContent('');
-    sendMutation.mutate(textToSend);
+    sendMutation.mutate({ content: textToSend });
   }, [content, sendMutation]);
+
+  const handleSendMedia = useCallback(
+    (payload: {
+      message_type: 'audio' | 'image' | 'sticker' | 'video_note';
+      file_url?: string;
+      duration?: number;
+      sticker_id?: string;
+    }) => {
+      sendMutation.mutate(payload);
+    },
+    [sendMutation]
+  );
 
   const getSenderDeco = useCallback((senderId: string): SenderDeco => {
     const sender = users?.find((u) => u.id === senderId);
@@ -266,10 +343,30 @@ export default function ChatScreen(): React.ReactElement {
 
     const isCorrection = sender.isWarrior && index > 0 && isReportFormat(combinedMessages[index - 1]?.content ?? '');
     if (isCorrection) {
-      return <CorrectionBubble content={text} formattedTime={time} sender={sender} isPending={isPending} />;
+      return (
+        <CorrectionBubble
+          content={text}
+          formattedTime={time}
+          sender={sender}
+          isPending={isPending}
+          status={item.status}
+        />
+      );
     }
 
-    return <MessageBubble content={text} formattedTime={time} sender={sender} isPending={isPending} />;
+    return (
+      <MessageBubble
+        content={item.content}
+        formattedTime={time}
+        sender={sender}
+        isPending={isPending}
+        message_type={item.message_type}
+        file_url={item.file_url}
+        duration={item.duration}
+        sticker_id={item.sticker_id}
+        status={item.status}
+      />
+    );
   }, [getSenderDeco, studiedReports, reactions, combinedMessages, toggleReaction]);
 
   const bottomPadding = isKeyboardVisible ? 10 : Math.max(insets.bottom, Platform.OS === 'android' ? 15 : 0);
@@ -322,6 +419,7 @@ export default function ChatScreen(): React.ReactElement {
           value={content}
           onChangeText={setContent}
           onSend={handleSend}
+          onSendMedia={handleSendMedia}
           isSending={sendMutation.isPending}
           paddingBottom={bottomPadding}
         />
@@ -338,15 +436,22 @@ const styles = StyleSheet.create({
   backBtnText: { fontSize: 24, color: COLORS.textSecondary },
   sysMsgWarn: {
     backgroundColor: 'rgba(183, 136, 69, 0.05)',
-    borderWidth: 1, borderColor: '#F4EAD4',
-    borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14,
-    marginHorizontal: 20, marginVertical: 8, alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: '#F4EAD4',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginHorizontal: 20,
+    marginVertical: 8,
+    alignSelf: 'center',
   },
   sysMsgWarnText: { fontSize: 12, color: COLORS.warn, fontFamily: 'IBMPlexSans_400Regular' },
   sysDateWrap: { alignItems: 'center', marginVertical: 14 },
   sysDateText: {
-    fontSize: 11, color: COLORS.textMuted,
+    fontSize: 11,
+    color: COLORS.textMuted,
     fontFamily: 'IBMPlexMono_400Regular',
-    letterSpacing: 0.5, textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
 });

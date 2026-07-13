@@ -227,10 +227,51 @@ export const api = {
     getMessages: (chatId: string): Promise<Message[]> =>
       request<Message[]>(`/messaging/chats/${chatId}/messages`),
 
-    sendMessage: (chatId: string, content: string): Promise<Message> =>
+    sendMessage: (
+      chatId: string,
+      content: string | null,
+      payload?: {
+        message_type?: string;
+        file_url?: string | null;
+        duration?: number | null;
+        sticker_id?: string | null;
+      }
+    ): Promise<Message> =>
       request<Message>('/messaging/messages', {
         method: 'POST',
-        body: JSON.stringify({ chat_id: chatId, content }),
+        body: JSON.stringify({ chat_id: chatId, content, ...payload }),
+      }),
+
+    uploadAttachment: async (fileUri: string, mimeType: string, filename: string): Promise<{ file_url: string }> => {
+      const { accessToken } = useAuthStore.getState();
+      const formData = new FormData();
+      
+      // React Native FormData expects an object with uri, type, name for file upload
+      formData.append('file', {
+        uri: fileUri,
+        type: mimeType,
+        name: filename,
+      } as any);
+
+      const response = await fetch(`${API_URL}/messaging/attachments/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      return response.json();
+    },
+
+    updateReceipts: (messageIds: string[], status: 'delivered' | 'read'): Promise<MsgResponse> =>
+      request<MsgResponse>('/messaging/messages/receipts', {
+        method: 'POST',
+        body: JSON.stringify({ message_ids: messageIds, status }),
       }),
 
     createChat: (otherUserId: string, name?: string): Promise<Chat> =>

@@ -40,9 +40,14 @@ export interface Message {
   chat_id: string;
   sender_id: string;
   sender?: User;
-  content: string;
+  content: string | null;
   parent_id: string | null;
   created_at: string; // ISO Date
+  message_type?: 'text' | 'audio' | 'image' | 'sticker' | 'video_note' | string;
+  file_url?: string | null;
+  duration?: number | null;
+  sticker_id?: string | null;
+  status?: 'sent' | 'delivered' | 'read' | string;
 }
 
 export interface TokenResponse {
