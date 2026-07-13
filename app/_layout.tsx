@@ -1,11 +1,12 @@
 import React from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useSegments, router } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useFonts } from 'expo-font';
 import { ActivityIndicator, View } from 'react-native';
 import { ObserveRoot, useObserve, Observe } from 'expo-observe';
+import { useAuthStore } from '../stores/useAuthStore';
 
 Observe.configure({
   integrations: { 'expo-router': true },
@@ -53,6 +54,22 @@ import { TimerManager } from '../components/TimerManager';
 // AppContent находится внутри QueryClientProvider — имеет доступ к useQueryClient
 function AppContent(): React.ReactElement {
   useOfflineQueue();
+
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const currentUser = useAuthStore((state) => state.currentUser);
+  const segments = useSegments();
+
+  React.useEffect(() => {
+    const inAuthGroup = segments[0] === '(auth)';
+    if (!accessToken || !currentUser) {
+      if (!inAuthGroup) {
+        const timer = setTimeout(() => {
+          router.replace('/(auth)');
+        }, 1);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [accessToken, currentUser, segments]);
 
   return (
     <View style={{ flex: 1 }}>

@@ -78,42 +78,46 @@ async function request<T>(
 
   // Прозрачное обновление токена при 401 (кроме auth-эндпоинтов и ручных токенов)
   const isAuthPath = path.startsWith('/auth');
-  if (response.status === 401 && refreshToken && !manualToken && !isAuthPath) {
-    try {
-      if (!refreshPromise) {
-        refreshPromise = (async () => {
-          const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh_token: refreshToken }),
+  if (response.status === 401 && !manualToken && !isAuthPath) {
+    if (refreshToken) {
+      try {
+        if (!refreshPromise) {
+          refreshPromise = (async () => {
+            const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refresh_token: refreshToken }),
+            });
+
+            if (!refreshResponse.ok) {
+              throw new Error('Refresh failed');
+            }
+
+            const tokens = (await refreshResponse.json()) as TokenResponse;
+            const { currentUser } = useAuthStore.getState();
+            setTokens(tokens.access_token, tokens.refresh_token);
+            if (currentUser) {
+              setCurrentUser(currentUser);
+            }
+            return tokens.access_token;
+          })().finally(() => {
+            refreshPromise = null;
           });
+        }
 
-          if (!refreshResponse.ok) {
-            throw new Error('Refresh failed');
-          }
-
-          const tokens = (await refreshResponse.json()) as TokenResponse;
-          const { currentUser } = useAuthStore.getState();
-          setTokens(tokens.access_token, tokens.refresh_token);
-          if (currentUser) {
-            setCurrentUser(currentUser);
-          }
-          return tokens.access_token;
-        })().finally(() => {
-          refreshPromise = null;
+        const newAccessToken = await refreshPromise;
+        headers.set('Authorization', `Bearer ${newAccessToken}`);
+        response = await fetch(`${API_URL}${path}`, { ...options, headers });
+      } catch (refreshError) {
+        Observe.logEvent('auth.token_refresh_failed', {
+          severity: 'error',
+          attributes: {
+            error: String(refreshError),
+          },
         });
+        logout();
       }
-
-      const newAccessToken = await refreshPromise;
-      headers.set('Authorization', `Bearer ${newAccessToken}`);
-      response = await fetch(`${API_URL}${path}`, { ...options, headers });
-    } catch (refreshError) {
-      Observe.logEvent('auth.token_refresh_failed', {
-        severity: 'error',
-        attributes: {
-          error: String(refreshError),
-        },
-      });
+    } else {
       logout();
     }
   }
@@ -185,10 +189,10 @@ export const api = {
       request<CurrentUser>('/users/me', {}, token),
 
     listAll: (): Promise<CurrentUser[]> =>
-      request<CurrentUser[]>('/users/'),
+      request<CurrentUser[]>('/users'),
 
     create: (userData: CreateUserRequest): Promise<CurrentUser> =>
-      request<CurrentUser>('/users/', {
+      request<CurrentUser>('/users', {
         method: 'POST',
         body: JSON.stringify(userData),
       }),

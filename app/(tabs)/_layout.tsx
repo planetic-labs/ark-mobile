@@ -92,7 +92,7 @@ export default function TabsLayout() {
   }, [accessToken]);
 
   if (!accessToken) {
-    return <Redirect href="/(auth)/login" />;
+    return <Redirect href="/(auth)" />;
   }
 
   const handleLogout = async () => {
