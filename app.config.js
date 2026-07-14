@@ -63,6 +63,12 @@ module.exports = ({ config }) => {
       "expo-sharing",
       "expo-image",
       [
+        "expo-audio",
+        {
+          "microphonePermission": "Разрешить доступ к микрофону для записи голосовых сообщений."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash.png",

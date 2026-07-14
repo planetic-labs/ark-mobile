@@ -14,6 +14,7 @@ import {
   AppPermission,
 } from '../types/shared';
 import { Observe } from 'expo-observe';
+import * as FileSystem from 'expo-file-system/legacy';
 
 // Разбирает тело ошибки от FastAPI и возвращает читаемую строку
 function parseErrorMessage(status: number, statusText: string, text: string): string {
@@ -239,33 +240,31 @@ export const api = {
     ): Promise<Message> =>
       request<Message>('/messaging/messages', {
         method: 'POST',
-        body: JSON.stringify({ chat_id: chatId, content, ...payload }),
+        body: JSON.stringify({ chat_id: chatId, content: content || '', ...payload }),
       }),
 
     uploadAttachment: async (fileUri: string, mimeType: string, filename: string): Promise<{ file_url: string }> => {
       const { accessToken } = useAuthStore.getState();
-      const formData = new FormData();
       
-      // React Native FormData expects an object with uri, type, name for file upload
-      formData.append('file', {
-        uri: fileUri,
-        type: mimeType,
-        name: filename,
-      } as any);
+      const response = await FileSystem.uploadAsync(
+        `${API_URL}/messaging/attachments/upload`,
+        fileUri,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          httpMethod: 'POST',
+          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+          fieldName: 'file',
+          mimeType,
+        }
+      );
 
-      const response = await fetch(`${API_URL}/messaging/attachments/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload file');
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error(`Failed to upload file: Server returned status ${response.status}. Response: ${response.body}`);
       }
 
-      return response.json();
+      return JSON.parse(response.body);
     },
 
     updateReceipts: (messageIds: string[], status: 'delivered' | 'read'): Promise<MsgResponse> =>

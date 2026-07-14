@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { COLORS, FONTS } from '../constants/Config';
 import { Image } from 'expo-image';
-import { Audio } from 'expo-av';
+import { useAudioRecorder, useAudioRecorderState, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { api } from '../services/api';
@@ -51,9 +51,10 @@ export function MessageComposer({
   const [showCamera, setShowCamera] = useState(false);
   const [cameraRecording, setCameraRecording] = useState(false);
 
-  // Audio recording states
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
+  // Audio recording
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder);
+  const isRecording = recorderState.isRecording;
   const [recordSeconds, setRecordSeconds] = useState(0);
   const recordInterval = useRef<any>(null);
 
@@ -104,21 +105,18 @@ export function MessageComposer({
 
   const startAudioRecording = async () => {
     try {
-      const perm = await Audio.requestPermissionsAsync();
+      const perm = await requestRecordingPermissionsAsync();
       if (perm.status !== 'granted') {
         alert('Необходим доступ к микрофону!');
         return;
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(newRecording);
-      setIsRecording(true);
+      await recorder.prepareToRecordAsync();
+      recorder.record();
       setRecordSeconds(0);
       recordInterval.current = setInterval(() => {
         setRecordSeconds((s) => s + 1);
@@ -129,14 +127,11 @@ export function MessageComposer({
   };
 
   const stopAudioRecording = async (shouldSend: boolean) => {
-    if (!recording) return;
-    setIsRecording(false);
     if (recordInterval.current) clearInterval(recordInterval.current);
 
     try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      setRecording(null);
+      await recorder.stop();
+      const uri = recorder.uri;
 
       if (shouldSend && uri) {
         setIsUploading(true);

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS, FONTS } from '../constants/Config';
 import { Image } from 'expo-image';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
 // Данные отправителя, необходимые для отображения сообщения
@@ -65,48 +65,21 @@ const AudioPlayer = React.memo(function AudioPlayer({
   fileUrl: string;
   duration?: number | null;
 }) {
-  const [sound, setSound] = React.useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = React.useState(false);
-  const [position, setPosition] = React.useState(0);
-  const [soundDuration, setSoundDuration] = React.useState(duration ? duration * 1000 : 0);
+  const player = useAudioPlayer(fileUrl);
+  const status = useAudioPlayerStatus(player);
 
-  React.useEffect(() => {
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, [sound]);
+  const isPlaying = status.playing;
+  const position = status.currentTime * 1000;
+  const soundDuration = status.duration > 0 ? status.duration * 1000 : (duration ? duration * 1000 : 0);
 
-  const handlePlayPause = async () => {
-    if (sound) {
-      if (isPlaying) {
-        await sound.pauseAsync();
-        setIsPlaying(false);
-      } else {
-        await sound.playAsync();
-        setIsPlaying(true);
-      }
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      player.pause();
     } else {
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: fileUrl },
-        { shouldPlay: true },
-        (status) => {
-          if (status.isLoaded) {
-            setPosition(status.positionMillis);
-            if (status.durationMillis) {
-              setSoundDuration(status.durationMillis);
-            }
-            setIsPlaying(status.isPlaying);
-            if (status.didJustFinish) {
-              setIsPlaying(false);
-              setPosition(0);
-            }
-          }
-        }
-      );
-      setSound(newSound);
-      setIsPlaying(true);
+      if (status.didJustFinish) {
+        player.seekTo(0);
+      }
+      player.play();
     }
   };
 
@@ -191,7 +164,8 @@ export const MessageBubble = React.memo(function MessageBubble({
     if (!url) return '';
     if (url.startsWith('/static')) {
       const baseUrl = require('../constants/Config').API_URL;
-      return `${baseUrl}${url}`;
+      const cleanBaseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+      return `${cleanBaseUrl}${url}`;
     }
     return url;
   };
