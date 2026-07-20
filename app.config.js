@@ -82,8 +82,10 @@ module.exports = ({ config }) => {
           "icon": "./assets/icon.png",
           "color": "#b78845",
           "sounds": [
-            "./assets/sounds/siren_warrior.wav",
-            "./assets/sounds/siren_satsang.wav"
+            "./assets/sounds/boxing_gong.wav",
+            "./assets/sounds/gong_grinding_sound.wav",
+            "./assets/sounds/gong_single_noisy.wav",
+            "./assets/sounds/space_gong.wav"
           ]
         }
       ]

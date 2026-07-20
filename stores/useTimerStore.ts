@@ -16,7 +16,7 @@ const zustandTimerStorage = {
   },
 };
 
-export type TimerSound = 'siren_satsang' | 'siren_warrior';
+export type TimerSound = 'boxing_gong' | 'gong_grinding_sound' | 'gong_single_noisy' | 'space_gong';
 
 interface TimerState {
   duration: number; // в секундах
@@ -53,7 +53,7 @@ const scheduleNotificationPack = async (
   sound: TimerSound
 ): Promise<string[]> => {
   const ids: string[] = [];
-  const soundName = sound === 'siren_satsang' ? 'siren_satsang.wav' : 'siren_warrior.wav';
+  const soundName = `${sound}.wav`;
   
   // Рассчитываем количество циклов на 10 часов вперед (10 * 3600 секунд)
   // Ограничиваем сверху 50 уведомлениями, так как на iOS жесткий лимит составляет 64 уведомления на приложение,
@@ -90,7 +90,7 @@ export const useTimerStore = create<TimerState>()(
   persist(
     (set, get) => ({
       duration: 300, // 5 минут по умолчанию
-      sound: 'siren_satsang',
+      sound: 'boxing_gong',
       isActive: false,
       timeLeft: 300,
       isFinished: false,

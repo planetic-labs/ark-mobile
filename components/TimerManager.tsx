@@ -12,11 +12,19 @@ export function TimerManager(): null {
   const sound = useTimerStore((state) => state.sound);
   const resetFinished = useTimerStore((state) => state.resetFinished);
 
-  const satsangPlayer = useVideoPlayer(require('../assets/sounds/siren_satsang.wav'), (player) => {
+  const boxingGongPlayer = useVideoPlayer(require('../assets/sounds/boxing_gong.wav'), (player) => {
     player.loop = false;
   });
 
-  const warriorPlayer = useVideoPlayer(require('../assets/sounds/siren_warrior.wav'), (player) => {
+  const gongGrindingPlayer = useVideoPlayer(require('../assets/sounds/gong_grinding_sound.wav'), (player) => {
+    player.loop = false;
+  });
+
+  const gongSingleNoisyPlayer = useVideoPlayer(require('../assets/sounds/gong_single_noisy.wav'), (player) => {
+    player.loop = false;
+  });
+
+  const spaceGongPlayer = useVideoPlayer(require('../assets/sounds/space_gong.wav'), (player) => {
     player.loop = false;
   });
 
@@ -73,16 +81,30 @@ export function TimerManager(): null {
   // Эффект для воспроизведения звука
   useEffect(() => {
     if (isFinished) {
-      if (sound === 'siren_satsang') {
-        satsangPlayer.currentTime = 0;
-        satsangPlayer.play();
-      } else if (sound === 'siren_warrior') {
-        warriorPlayer.currentTime = 0;
-        warriorPlayer.play();
+      if (sound === 'boxing_gong') {
+        boxingGongPlayer.currentTime = 0;
+        boxingGongPlayer.play();
+      } else if (sound === 'gong_grinding_sound') {
+        gongGrindingPlayer.currentTime = 0;
+        gongGrindingPlayer.play();
+      } else if (sound === 'gong_single_noisy') {
+        gongSingleNoisyPlayer.currentTime = 0;
+        gongSingleNoisyPlayer.play();
+      } else if (sound === 'space_gong') {
+        spaceGongPlayer.currentTime = 0;
+        spaceGongPlayer.play();
       }
       resetFinished();
     }
-  }, [isFinished, sound, satsangPlayer, warriorPlayer, resetFinished]);
+  }, [
+    isFinished,
+    sound,
+    boxingGongPlayer,
+    gongGrindingPlayer,
+    gongSingleNoisyPlayer,
+    spaceGongPlayer,
+    resetFinished,
+  ]);
 
   return null;
 }

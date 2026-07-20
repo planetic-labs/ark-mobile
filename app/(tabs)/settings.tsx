@@ -111,6 +111,13 @@ const ChevronRight = ({ color }: { color: string }) => (
   </Svg>
 );
 
+const SOUNDS_METADATA = [
+  { id: 'boxing_gong', title: 'Боксерский гонг' },
+  { id: 'gong_grinding_sound', title: 'Скрежещущий гонг' },
+  { id: 'gong_single_noisy', title: 'Одиночный гонг' },
+  { id: 'space_gong', title: 'Космический гонг' },
+] as const;
+
 export default function SettingsScreen() {
   const currentUser = useAuthStore((state) => state.currentUser);
   const logout = useAuthStore((state) => state.logout);
@@ -404,32 +411,26 @@ export default function SettingsScreen() {
           {/* Настройка звука */}
           <Text style={styles.chipsTitle}>Звук завершения</Text>
           <View style={styles.soundContainer}>
-            <TouchableOpacity
-              style={styles.soundOption}
-              onPress={() => !isActive && setSound('siren_satsang')}
-              disabled={isActive}
-              activeOpacity={isActive ? 1 : 0.7}
-            >
-              <View style={[styles.soundRadio, sound === 'siren_satsang' && styles.soundRadioActive]}>
-                {sound === 'siren_satsang' && <View style={styles.soundRadioInner} />}
-              </View>
-              <Text style={[styles.soundOptionText, sound === 'siren_satsang' && styles.soundOptionTextActive]}>
-                Сирена Сатсанга
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.soundOption, styles.soundOptionLast]}
-              onPress={() => !isActive && setSound('siren_warrior')}
-              disabled={isActive}
-              activeOpacity={isActive ? 1 : 0.7}
-            >
-              <View style={[styles.soundRadio, sound === 'siren_warrior' && styles.soundRadioActive]}>
-                {sound === 'siren_warrior' && <View style={styles.soundRadioInner} />}
-              </View>
-              <Text style={[styles.soundOptionText, sound === 'siren_warrior' && styles.soundOptionTextActive]}>
-                Сирена Воина
-              </Text>
-            </TouchableOpacity>
+            {SOUNDS_METADATA.map((item, index) => {
+              const isLast = index === SOUNDS_METADATA.length - 1;
+              const isSelected = sound === item.id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.soundOption, isLast && styles.soundOptionLast]}
+                  onPress={() => !isActive && setSound(item.id)}
+                  disabled={isActive}
+                  activeOpacity={isActive ? 1 : 0.7}
+                >
+                  <View style={[styles.soundRadio, isSelected && styles.soundRadioActive]}>
+                    {isSelected && <View style={styles.soundRadioInner} />}
+                  </View>
+                  <Text style={[styles.soundOptionText, isSelected && styles.soundOptionTextActive]}>
+                    {item.title}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </ScrollView>
       </View>
