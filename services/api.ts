@@ -16,6 +16,18 @@ import {
 import { Observe } from 'expo-observe';
 import * as FileSystem from 'expo-file-system/legacy';
 
+function safeLogEvent(name: string, options?: { severity?: 'info' | 'warn' | 'error'; attributes?: Record<string, string | number | boolean | null> }): void {
+  try {
+    if (typeof Observe !== 'undefined' && Observe && typeof Observe.logEvent === 'function') {
+      Observe.logEvent(name, options as any);
+    } else {
+      console.warn(`[Observe stub] Event: ${name}`, options);
+    }
+  } catch (e) {
+    console.warn('Failed to log event via Observe:', e);
+  }
+}
+
 // Разбирает тело ошибки от FastAPI и возвращает читаемую строку
 function parseErrorMessage(status: number, statusText: string, text: string): string {
   const fallback = statusText || `HTTP ${status}`;
@@ -65,7 +77,7 @@ async function request<T>(
   try {
     response = await fetch(`${API_URL}${path}`, { ...options, headers });
   } catch (netError) {
-    Observe.logEvent('api.request_failed', {
+    safeLogEvent('api.request_failed', {
       severity: 'error',
       attributes: {
         endpoint: path,
@@ -110,7 +122,7 @@ async function request<T>(
         headers.set('Authorization', `Bearer ${newAccessToken}`);
         response = await fetch(`${API_URL}${path}`, { ...options, headers });
       } catch (refreshError) {
-        Observe.logEvent('auth.token_refresh_failed', {
+        safeLogEvent('auth.token_refresh_failed', {
           severity: 'error',
           attributes: {
             error: String(refreshError),
@@ -127,7 +139,7 @@ async function request<T>(
     const text = await response.text();
     const errorMessage = parseErrorMessage(response.status, response.statusText, text);
 
-    Observe.logEvent('api.request_failed', {
+    safeLogEvent('api.request_failed', {
       severity: 'error',
       attributes: {
         endpoint: path,
