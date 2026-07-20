@@ -62,6 +62,7 @@ module.exports = ({ config }) => {
       "expo-video",
       "expo-sharing",
       "expo-image",
+      "expo-asset",
       [
         "expo-audio",
         {
