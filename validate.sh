@@ -6,6 +6,9 @@ set -e
 echo "=== Running TypeScript verification (tsc --noEmit) ==="
 npx tsc --noEmit
 
+echo "=== Running Expo Doctor verification ==="
+npx expo-doctor
+
 echo "=== Running test suite (jest) ==="
 npx jest --watchAll=false --passWithNoTests
 
