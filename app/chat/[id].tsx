@@ -26,6 +26,7 @@ import {
   type SenderDeco,
 } from '../../components/MessageBubbles';
 import { MessageComposer } from '../../components/MessageComposer';
+import { SwipeableMessage } from '../../components/SwipeableMessage';
 import { ChatHeaderTitle, ChatHeaderActions } from '../../components/ChatHeader';
 import type { Message, WebSocketNewMessageEvent } from '../../types/shared';
 
@@ -65,6 +66,7 @@ interface SendPayload {
   file_url?: string | null;
   duration?: number | null;
   sticker_id?: string | null;
+  parent_id?: string | null;
 }
 
 export default function ChatScreen(): React.ReactElement {
@@ -73,6 +75,7 @@ export default function ChatScreen(): React.ReactElement {
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [studiedReports, setStudiedReports] = useState<Record<string, boolean>>({});
   const [reactions, setReactions] = useState<Record<string, ReactionState>>({});
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
 
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -222,6 +225,7 @@ export default function ChatScreen(): React.ReactElement {
         file_url: payload.file_url,
         duration: payload.duration,
         sticker_id: payload.sticker_id,
+        parent_id: payload.parent_id,
       }),
     onMutate: async (payload) => {
       await queryClient.cancelQueries({ queryKey: ['messages', id] });
@@ -233,7 +237,7 @@ export default function ChatScreen(): React.ReactElement {
         chat_id: id as string,
         sender_id: useAuthStore.getState().currentUser?.id || 'me',
         content: payload.content || null,
-        parent_id: null,
+        parent_id: payload.parent_id || null,
         created_at: new Date().toISOString(),
         message_type: payload.message_type || 'text',
         file_url: payload.file_url,
@@ -271,8 +275,9 @@ export default function ChatScreen(): React.ReactElement {
     const textToSend = content.trim();
     if (!textToSend || sendMutation.isPending) return;
     setContent('');
-    sendMutation.mutate({ content: textToSend });
-  }, [content, sendMutation]);
+    sendMutation.mutate({ content: textToSend, parent_id: replyTo ? replyTo.id : null });
+    setReplyTo(null);
+  }, [content, sendMutation, replyTo]);
 
   const handleSendMedia = useCallback(
     (payload: {
@@ -281,9 +286,10 @@ export default function ChatScreen(): React.ReactElement {
       duration?: number;
       sticker_id?: string;
     }) => {
-      sendMutation.mutate(payload);
+      sendMutation.mutate({ ...payload, parent_id: replyTo ? replyTo.id : null });
+      setReplyTo(null);
     },
-    [sendMutation]
+    [sendMutation, replyTo]
   );
 
   const getSenderDeco = useCallback((senderId: string): SenderDeco => {
@@ -327,47 +333,80 @@ export default function ChatScreen(): React.ReactElement {
 
     if (isReportFormat(text)) {
       return (
-        <ReportCard
-          sender={sender}
-          formattedTime={time}
-          fullDate={date}
-          items={parseReportItems(text)}
-          isStudied={studiedReports[item.id] ?? false}
-          reactions={reactions[item.id] ?? DEFAULT_REACTION}
-          onToggleStudied={() => setStudiedReports((p) => ({ ...p, [item.id]: !p[item.id] }))}
-          onToggleReaction={(type) => toggleReaction(item.id, type)}
-          isPending={isPending}
-        />
+        <SwipeableMessage onSwipeLeft={() => setReplyTo(item)} enabled={!isPending}>
+          <ReportCard
+            sender={sender}
+            formattedTime={time}
+            fullDate={date}
+            items={parseReportItems(text)}
+            isStudied={studiedReports[item.id] ?? false}
+            reactions={reactions[item.id] ?? DEFAULT_REACTION}
+            onToggleStudied={() => setStudiedReports((p) => ({ ...p, [item.id]: !p[item.id] }))}
+            onToggleReaction={(type) => toggleReaction(item.id, type)}
+            isPending={isPending}
+            onLongPress={() => setReplyTo(item)}
+          />
+        </SwipeableMessage>
       );
     }
 
     const isCorrection = sender.isWarrior && index > 0 && isReportFormat(combinedMessages[index - 1]?.content ?? '');
     if (isCorrection) {
       return (
-        <CorrectionBubble
-          content={text}
-          formattedTime={time}
-          sender={sender}
-          isPending={isPending}
-          status={item.status}
-        />
+        <SwipeableMessage onSwipeLeft={() => setReplyTo(item)} enabled={!isPending}>
+          <CorrectionBubble
+            content={text}
+            formattedTime={time}
+            sender={sender}
+            isPending={isPending}
+            status={item.status}
+            onLongPress={() => setReplyTo(item)}
+            reactions={reactions[item.id] ?? { pray: 0, eye: 0, userPrayed: false, userEyed: false }}
+            onToggleReaction={(type) => toggleReaction(item.id, type)}
+          />
+        </SwipeableMessage>
       );
     }
 
+    const parentMsg = item.parent_id
+      ? combinedMessages.find((m) => m.id === item.parent_id)
+      : null;
+
+    const parentMessageInfo = item.parent_id
+      ? (() => {
+          if (parentMsg) {
+            return {
+              senderName: getSenderDeco(parentMsg.sender_id).name,
+              content: parentMsg.content || (parentMsg.message_type === 'image' ? '[Фото]' : parentMsg.message_type === 'audio' ? '[Аудио]' : parentMsg.message_type === 'sticker' ? '[Стикер]' : parentMsg.message_type === 'video_note' ? '[Видеокружочек]' : '[Медиа]'),
+            };
+          }
+          return {
+            senderName: 'Сообщение',
+            content: 'Предыдущее сообщение...',
+          };
+        })()
+      : null;
+
     return (
-      <MessageBubble
-        content={item.content}
-        formattedTime={time}
-        sender={sender}
-        isPending={isPending}
-        message_type={item.message_type}
-        file_url={item.file_url}
-        duration={item.duration}
-        sticker_id={item.sticker_id}
-        status={item.status}
-      />
+      <SwipeableMessage onSwipeLeft={() => setReplyTo(item)} enabled={!isPending}>
+        <MessageBubble
+          content={item.content}
+          formattedTime={time}
+          sender={sender}
+          isPending={isPending}
+          message_type={item.message_type}
+          file_url={item.file_url}
+          duration={item.duration}
+          sticker_id={item.sticker_id}
+          status={item.status}
+          parentMessage={parentMessageInfo}
+          onLongPress={() => setReplyTo(item)}
+          reactions={reactions[item.id] ?? { pray: 0, eye: 0, userPrayed: false, userEyed: false }}
+          onToggleReaction={(type) => toggleReaction(item.id, type)}
+        />
+      </SwipeableMessage>
     );
-  }, [getSenderDeco, studiedReports, reactions, combinedMessages, toggleReaction]);
+  }, [getSenderDeco, studiedReports, reactions, combinedMessages, toggleReaction, setReplyTo]);
 
   const bottomPadding = isKeyboardVisible ? 10 : Math.max(insets.bottom, Platform.OS === 'android' ? 15 : 0);
 
@@ -422,6 +461,11 @@ export default function ChatScreen(): React.ReactElement {
           onSendMedia={handleSendMedia}
           isSending={sendMutation.isPending}
           paddingBottom={bottomPadding}
+          replyTo={replyTo ? {
+            senderName: getSenderDeco(replyTo.sender_id).name,
+            content: replyTo.content || (replyTo.message_type === 'image' ? '[Фото]' : replyTo.message_type === 'audio' ? '[Аудио]' : replyTo.message_type === 'sticker' ? '[Стикер]' : replyTo.message_type === 'video_note' ? '[Видеокружочек]' : '[Медиа]'),
+          } : null}
+          onCancelReply={() => setReplyTo(null)}
         />
       </KeyboardAvoidingView>
     </View>

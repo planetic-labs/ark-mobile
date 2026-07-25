@@ -87,7 +87,7 @@ export function useNotifications(): UseNotificationsResult {
         await Notifications.setNotificationChannelAsync('siren_warrior', {
           name: 'Сирена Воина',
           importance: Notifications.AndroidImportance.MAX,
-          sound: 'boxing_gong.wav',
+          sound: 'boxing_gong',
           vibrationPattern: [0, 500, 250, 500],
           lightColor: '#b78845',
         });
@@ -95,7 +95,7 @@ export function useNotifications(): UseNotificationsResult {
         await Notifications.setNotificationChannelAsync('siren_satsang', {
           name: 'Сирена Сатсанга',
           importance: Notifications.AndroidImportance.MAX,
-          sound: 'space_gong.wav',
+          sound: 'space_gong',
           vibrationPattern: [0, 500, 250, 500],
           lightColor: '#b78845',
         });
@@ -103,7 +103,7 @@ export function useNotifications(): UseNotificationsResult {
         await Notifications.setNotificationChannelAsync('timer_boxing_gong', {
           name: 'Таймер: Боксерский гонг',
           importance: Notifications.AndroidImportance.MAX,
-          sound: 'boxing_gong.wav',
+          sound: 'boxing_gong',
           vibrationPattern: [0, 500, 250, 500],
           lightColor: '#b78845',
         });
@@ -111,7 +111,7 @@ export function useNotifications(): UseNotificationsResult {
         await Notifications.setNotificationChannelAsync('timer_gong_grinding_sound', {
           name: 'Таймер: Скрежещущий гонг',
           importance: Notifications.AndroidImportance.MAX,
-          sound: 'gong_grinding_sound.wav',
+          sound: 'gong_grinding_sound',
           vibrationPattern: [0, 500, 250, 500],
           lightColor: '#b78845',
         });
@@ -119,7 +119,7 @@ export function useNotifications(): UseNotificationsResult {
         await Notifications.setNotificationChannelAsync('timer_gong_single_noisy', {
           name: 'Таймер: Одиночный гонг',
           importance: Notifications.AndroidImportance.MAX,
-          sound: 'gong_single_noisy.wav',
+          sound: 'gong_single_noisy',
           vibrationPattern: [0, 500, 250, 500],
           lightColor: '#b78845',
         });
@@ -127,7 +127,7 @@ export function useNotifications(): UseNotificationsResult {
         await Notifications.setNotificationChannelAsync('timer_space_gong', {
           name: 'Таймер: Космический гонг',
           importance: Notifications.AndroidImportance.MAX,
-          sound: 'space_gong.wav',
+          sound: 'space_gong',
           vibrationPattern: [0, 500, 250, 500],
           lightColor: '#b78845',
         });

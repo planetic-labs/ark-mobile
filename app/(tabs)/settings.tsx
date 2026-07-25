@@ -350,7 +350,7 @@ export default function SettingsScreen() {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    const options = [1, 5, 10, 15, 20, 30];
+    const options = [1, 5, 7, 10, 15, 20, 25, 30];
 
     return (
       <View style={styles.container}>

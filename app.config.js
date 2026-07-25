@@ -34,7 +34,8 @@ module.exports = ({ config }) => {
       },
       softwareKeyboardLayoutMode: "resize",
       permissions: [
-        "android.permission.SCHEDULE_EXACT_ALARM"
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     web: {

@@ -28,6 +28,11 @@ interface MessageComposerProps {
   }) => void;
   isSending: boolean;
   paddingBottom: number;
+  replyTo?: {
+    senderName: string;
+    content: string;
+  } | null;
+  onCancelReply?: () => void;
 }
 
 const STICKERS = [
@@ -44,6 +49,8 @@ export function MessageComposer({
   onSendMedia,
   isSending,
   paddingBottom,
+  replyTo,
+  onCancelReply,
 }: MessageComposerProps): React.ReactElement {
   const [isUploading, setIsUploading] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
@@ -147,6 +154,14 @@ export function MessageComposer({
       console.error('Failed to stop recording', err);
     } finally {
       setIsUploading(false);
+      try {
+        await setAudioModeAsync({
+          allowsRecording: false,
+          playsInSilentMode: true,
+        });
+      } catch (e) {
+        console.warn('Failed to reset audio mode after recording', e);
+      }
     }
   };
 
@@ -202,6 +217,19 @@ export function MessageComposer({
 
   return (
     <View style={[styles.composerContainer, { paddingBottom }]}>
+      {/* Reply Preview */}
+      {replyTo && (
+        <View style={styles.replyPreviewContainer}>
+          <View style={styles.replyPreviewBar} />
+          <View style={styles.replyPreviewContent}>
+            <Text style={styles.replyPreviewAuthor}>Ответ пользователю {replyTo.senderName}</Text>
+            <Text style={styles.replyPreviewText} numberOfLines={1}>{replyTo.content}</Text>
+          </View>
+          <TouchableOpacity onPress={onCancelReply} style={styles.replyCancelBtn}>
+            <Text style={styles.replyCancelText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {/* Sticker Selector Panel */}
       {showStickers && (
         <View style={styles.stickerPanel}>
@@ -514,5 +542,43 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: FONTS.bodySemiBold,
     fontSize: 14,
+  },
+  replyPreviewContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#FCFAF5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ECE7DD',
+    alignItems: 'center',
+  },
+  replyPreviewBar: {
+    width: 3,
+    height: 18,
+    backgroundColor: COLORS.amber,
+    borderRadius: 1.5,
+    marginRight: 10,
+  },
+  replyPreviewContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  replyPreviewAuthor: {
+    fontFamily: FONTS.bodySemiBold,
+    fontSize: 11,
+    color: COLORS.amber,
+    marginBottom: 2,
+  },
+  replyPreviewText: {
+    fontFamily: FONTS.body,
+    fontSize: 11.5,
+    color: COLORS.textSecondary,
+  },
+  replyCancelBtn: {
+    padding: 6,
+  },
+  replyCancelText: {
+    fontSize: 14,
+    color: COLORS.textMuted,
   },
 });

@@ -248,6 +248,7 @@ export const api = {
         file_url?: string | null;
         duration?: number | null;
         sticker_id?: string | null;
+        parent_id?: string | null;
       }
     ): Promise<Message> =>
       request<Message>('/messaging/messages', {

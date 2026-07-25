@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS, FONTS } from '../constants/Config';
 import { Image } from 'expo-image';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
 // Данные отправителя, необходимые для отображения сообщения
@@ -35,6 +35,13 @@ interface MessageBubbleProps {
   duration?: number | null;
   sticker_id?: string | null;
   status?: string;
+  parentMessage?: {
+    senderName: string;
+    content: string;
+  } | null;
+  onLongPress?: () => void;
+  reactions?: ReactionState;
+  onToggleReaction?: (type: 'pray' | 'eye') => void;
 }
 
 interface ReportCardProps {
@@ -47,6 +54,7 @@ interface ReportCardProps {
   onToggleStudied: () => void;
   onToggleReaction: (type: 'pray' | 'eye') => void;
   isPending?: boolean;
+  onLongPress?: () => void;
 }
 
 interface CorrectionBubbleProps {
@@ -55,6 +63,9 @@ interface CorrectionBubbleProps {
   sender: SenderDeco;
   isPending?: boolean;
   status?: string;
+  onLongPress?: () => void;
+  reactions?: ReactionState;
+  onToggleReaction?: (type: 'pray' | 'eye') => void;
 }
 
 // Компонент проигрывания аудио
@@ -72,7 +83,16 @@ const AudioPlayer = React.memo(function AudioPlayer({
   const position = status.currentTime * 1000;
   const soundDuration = status.duration > 0 ? status.duration * 1000 : (duration ? duration * 1000 : 0);
 
-  const handlePlayPause = () => {
+  const handlePlayPause = async () => {
+    try {
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
+    } catch (e) {
+      console.warn('Failed to set audio mode for playing', e);
+    }
+
     if (isPlaying) {
       player.pause();
     } else {
@@ -152,6 +172,10 @@ export const MessageBubble = React.memo(function MessageBubble({
   duration,
   sticker_id,
   status = 'sent',
+  parentMessage,
+  onLongPress,
+  reactions,
+  onToggleReaction,
 }: MessageBubbleProps): React.ReactElement {
   const renderStatus = () => {
     if (isPending) return <Text style={styles.readText}>⏳</Text>;
@@ -181,7 +205,11 @@ export const MessageBubble = React.memo(function MessageBubble({
             {sender.avatar}
           </Text>
         </View>
-        <View style={{ maxWidth: '85%' }}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onLongPress={onLongPress}
+          style={{ maxWidth: '85%' }}
+        >
           <Text style={[styles.authorName, sender.isWarrior && styles.authorNameWarrior]}>
             {sender.name} {sender.isWarrior && '◈'}
           </Text>
@@ -190,7 +218,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             <Text style={styles.timeText}>{formattedTime}</Text>
             {renderStatus()}
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -204,7 +232,11 @@ export const MessageBubble = React.memo(function MessageBubble({
             {sender.avatar}
           </Text>
         </View>
-        <View style={{ maxWidth: '85%' }}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onLongPress={onLongPress}
+          style={{ maxWidth: '85%' }}
+        >
           <Text style={[styles.authorName, sender.isWarrior && styles.authorNameWarrior]}>
             {sender.name} {sender.isWarrior && '◈'}
           </Text>
@@ -213,7 +245,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             <Text style={styles.timeText}>{formattedTime}</Text>
             {renderStatus()}
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -225,10 +257,24 @@ export const MessageBubble = React.memo(function MessageBubble({
           {sender.avatar}
         </Text>
       </View>
-      <View style={[styles.bubble, sender.isWarrior && styles.bubbleWarrior]}>
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onLongPress={onLongPress}
+        style={[styles.bubble, sender.isWarrior && styles.bubbleWarrior]}
+      >
         <Text style={[styles.authorName, sender.isWarrior && styles.authorNameWarrior]}>
           {sender.name} {sender.isWarrior && '◈'}
         </Text>
+
+        {parentMessage && (
+          <View style={styles.replyPreviewInBubble}>
+            <View style={styles.replyBar} />
+            <View style={styles.replyContent}>
+              <Text style={styles.replyAuthor}>{parentMessage.senderName}</Text>
+              <Text style={styles.replyText} numberOfLines={1}>{parentMessage.content}</Text>
+            </View>
+          </View>
+        )}
 
         {message_type === 'image' && fullFileUrl ? (
           <Image source={{ uri: fullFileUrl }} style={styles.imageAttachment} contentFit="cover" />
@@ -244,7 +290,52 @@ export const MessageBubble = React.memo(function MessageBubble({
           <Text style={styles.timeText}>{formattedTime}</Text>
           {renderStatus()}
         </View>
-      </View>
+
+        {/* Кнопки реакций внутри баббла */}
+        {reactions && onToggleReaction && (
+          <View style={styles.bubbleReactRow}>
+            {(['pray', 'eye'] as const).map((type) => {
+              const active = type === 'pray' ? reactions.userPrayed : reactions.userEyed;
+              const count = type === 'pray' ? reactions.pray : reactions.eye;
+              const emoji = type === 'pray' ? '🙏' : '👁';
+              if (count === 0 && !active) return null;
+              return (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.bubbleReactChip, active && styles.bubbleReactChipMine]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    onToggleReaction(type);
+                  }}
+                  disabled={isPending}
+                >
+                  <Text style={[styles.bubbleReactChipText, active && styles.bubbleReactChipTextMine]}>
+                    {emoji} {count}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            
+            {/* Кнопка быстрого добавления реакции "+" */}
+            {(!reactions.userPrayed || !reactions.userEyed) && (
+              <TouchableOpacity
+                style={styles.bubbleReactChipAdd}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  if (!reactions.userPrayed) {
+                    onToggleReaction('pray');
+                  } else if (!reactions.userEyed) {
+                    onToggleReaction('eye');
+                  }
+                }}
+                disabled={isPending}
+              >
+                <Text style={styles.bubbleReactChipAddText}>+</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
     </View>
   );
 });
@@ -260,6 +351,7 @@ export const ReportCard = React.memo(function ReportCard({
   onToggleStudied,
   onToggleReaction,
   isPending,
+  onLongPress,
 }: ReportCardProps): React.ReactElement {
   return (
     <View style={[styles.msgRow, isPending && styles.pendingBubble]}>
@@ -269,22 +361,27 @@ export const ReportCard = React.memo(function ReportCard({
         </Text>
       </View>
       <View style={styles.reportCard}>
-        <View style={styles.reportHead}>
-          <View>
-            <Text style={styles.reportTag}>Отчёт</Text>
-            <Text style={styles.reportName}>{sender.name}</Text>
-          </View>
-          <Text style={styles.reportDate}>{fullDate} · {formattedTime}</Text>
-        </View>
-
-        <View style={styles.reportBody}>
-          {items.map((item, idx) => (
-            <View key={idx} style={styles.reportItem}>
-              <Text style={styles.reportItemNum}>{item.num}</Text>
-              <Text style={styles.reportItemText}>{item.text}</Text>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onLongPress={onLongPress}
+        >
+          <View style={styles.reportHead}>
+            <View>
+              <Text style={styles.reportTag}>Отчёт</Text>
+              <Text style={styles.reportName}>{sender.name}</Text>
             </View>
-          ))}
-        </View>
+            <Text style={styles.reportDate}>{fullDate} · {formattedTime}</Text>
+          </View>
+
+          <View style={styles.reportBody}>
+            {items.map((item, idx) => (
+              <View key={idx} style={styles.reportItem}>
+                <Text style={styles.reportItemNum}>{item.num}</Text>
+                <Text style={styles.reportItemText}>{item.text}</Text>
+              </View>
+            ))}
+          </View>
+        </TouchableOpacity>
 
         <View style={styles.reportFoot}>
           <View style={styles.studiedRow}>
@@ -338,6 +435,9 @@ export const CorrectionBubble = React.memo(function CorrectionBubble({
   sender,
   isPending,
   status = 'sent',
+  onLongPress,
+  reactions,
+  onToggleReaction,
 }: CorrectionBubbleProps): React.ReactElement {
   return (
     <View style={[styles.correctionContainer, isPending && styles.pendingBubble]}>
@@ -346,7 +446,11 @@ export const CorrectionBubble = React.memo(function CorrectionBubble({
         <View style={[styles.avatar, styles.avatarWarrior]}>
           <Text style={[styles.avatarText, styles.avatarTextWarrior]}>{sender.avatar}</Text>
         </View>
-        <View style={[styles.bubble, styles.bubbleWarrior]}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onLongPress={onLongPress}
+          style={[styles.bubble, styles.bubbleWarrior]}
+        >
           <Text style={styles.authorNameWarrior}>{sender.name}</Text>
           <Text style={styles.messageText}>{content}</Text>
           <View style={styles.metaRow}>
@@ -355,7 +459,52 @@ export const CorrectionBubble = React.memo(function CorrectionBubble({
               {isPending ? '⏳' : status === 'read' ? '✓✓' : status === 'delivered' ? '✓✓' : '✓'}
             </Text>
           </View>
-        </View>
+
+          {/* Кнопки реакций внутри баббла */}
+          {reactions && onToggleReaction && (
+            <View style={styles.bubbleReactRow}>
+              {(['pray', 'eye'] as const).map((type) => {
+                const active = type === 'pray' ? reactions.userPrayed : reactions.userEyed;
+                const count = type === 'pray' ? reactions.pray : reactions.eye;
+                const emoji = type === 'pray' ? '🙏' : '👁';
+                if (count === 0 && !active) return null;
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    style={[styles.bubbleReactChip, active && styles.bubbleReactChipMine]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onToggleReaction(type);
+                    }}
+                    disabled={isPending}
+                  >
+                    <Text style={[styles.bubbleReactChipText, active && styles.bubbleReactChipTextMine]}>
+                      {emoji} {count}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              
+              {/* Кнопка быстрого добавления реакции "+" */}
+              {(!reactions.userPrayed || !reactions.userEyed) && (
+                <TouchableOpacity
+                  style={styles.bubbleReactChipAdd}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    if (!reactions.userPrayed) {
+                      onToggleReaction('pray');
+                    } else if (!reactions.userEyed) {
+                      onToggleReaction('eye');
+                    }
+                  }}
+                  disabled={isPending}
+                >
+                  <Text style={styles.bubbleReactChipAddText}>+</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -599,5 +748,76 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     marginVertical: 4,
+  },
+  replyPreviewInBubble: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    borderRadius: 6,
+    padding: 6,
+    marginBottom: 8,
+    alignItems: 'stretch',
+  },
+  replyBar: {
+    width: 3,
+    backgroundColor: COLORS.amber,
+    borderRadius: 1.5,
+    marginRight: 8,
+  },
+  replyContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  replyAuthor: {
+    fontFamily: FONTS.bodySemiBold,
+    fontSize: 11,
+    color: COLORS.amber,
+    marginBottom: 2,
+  },
+  replyText: {
+    fontFamily: FONTS.body,
+    fontSize: 11.5,
+    color: COLORS.textSecondary,
+  },
+  bubbleReactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  bubbleReactChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  bubbleReactChipMine: {
+    backgroundColor: COLORS.amberGlow,
+    borderWidth: 0.5,
+    borderColor: COLORS.amber,
+  },
+  bubbleReactChipText: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    fontFamily: FONTS.mono,
+  },
+  bubbleReactChipTextMine: {
+    color: COLORS.amber,
+  },
+  bubbleReactChipAdd: {
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderRadius: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    width: 22,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bubbleReactChipAddText: {
+    fontSize: 10,
+    color: COLORS.textMuted,
   },
 });
