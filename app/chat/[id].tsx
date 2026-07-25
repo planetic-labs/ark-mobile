@@ -38,7 +38,7 @@ interface ReactionState {
   userEyed: boolean;
 }
 
-const DEFAULT_REACTION: ReactionState = { pray: 4, eye: 2, userPrayed: false, userEyed: false };
+const DEFAULT_REACTION: ReactionState = { pray: 0, eye: 0, userPrayed: false, userEyed: false };
 
 function isReportFormat(text: string | null): boolean {
   if (!text) return false;
@@ -85,6 +85,11 @@ export default function ChatScreen(): React.ReactElement {
   const { markInteractive } = useObserve();
 
   const flatListRef = useRef<FlatList>(null);
+  const hasScrolledInitial = useRef(false);
+
+  useEffect(() => {
+    hasScrolledInitial.current = false;
+  }, [id]);
 
   // Новые сообщения через WebSocket → в кэш TanStack Query + пометка как доставленное
   useEffect(() => {
@@ -101,6 +106,23 @@ export default function ChatScreen(): React.ReactElement {
     queryClient.setQueryData<Message[]>(['messages', id], (old) => {
       if (!old) return [event.data];
       if (old.some((m) => m.id === event.data.id)) return old;
+
+      const isMyMessage = event.data.sender_id === useAuthStore.getState().currentUser?.id;
+      if (isMyMessage) {
+        const tempIdx = old.findIndex(
+          (m) =>
+            m.id.startsWith('temp_') &&
+            (m.content === event.data.content ||
+              m.sticker_id === event.data.sticker_id ||
+              m.file_url === event.data.file_url)
+        );
+        if (tempIdx !== -1) {
+          const newMsgs = [...old];
+          newMsgs[tempIdx] = event.data;
+          return newMsgs;
+        }
+      }
+
       return [...old, event.data];
     });
   }, [lastEvent, id, queryClient]);
@@ -196,12 +218,21 @@ export default function ChatScreen(): React.ReactElement {
     return [...serverMsgs, ...localMsgs];
   }, [messages, pendingMessages]);
 
+  const handleContentSizeChange = useCallback(() => {
+    if (!isLoading && combinedMessages.length > 0 && !hasScrolledInitial.current) {
+      flatListRef.current?.scrollToEnd({ animated: false });
+      hasScrolledInitial.current = true;
+    }
+  }, [isLoading, combinedMessages.length]);
+
+  // Прокрутка при отправке собственного сообщения
   useEffect(() => {
     if (combinedMessages && combinedMessages.length > 0) {
-      const timer = setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: false });
-      }, 50);
-      return () => clearTimeout(timer);
+      const lastMsg = combinedMessages[combinedMessages.length - 1];
+      const isMyMessage = lastMsg.sender_id === useAuthStore.getState().currentUser?.id;
+      if (isMyMessage) {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }
     }
   }, [combinedMessages.length]);
 
@@ -309,10 +340,37 @@ export default function ChatScreen(): React.ReactElement {
       const cur = prev[msgId] ?? DEFAULT_REACTION;
       if (type === 'pray') {
         const userPrayed = !cur.userPrayed;
-        return { ...prev, [msgId]: { ...cur, userPrayed, pray: cur.pray + (userPrayed ? 1 : -1) } };
+        const userEyed = userPrayed ? false : cur.userEyed;
+        
+        const prayDiff = userPrayed ? 1 : -1;
+        const eyeDiff = (userEyed !== cur.userEyed) ? (userEyed ? 1 : -1) : 0;
+        
+        return {
+          ...prev,
+          [msgId]: {
+            pray: Math.max(0, cur.pray + prayDiff),
+            eye: Math.max(0, cur.eye + eyeDiff),
+            userPrayed,
+            userEyed,
+          },
+        };
+      } else {
+        const userEyed = !cur.userEyed;
+        const userPrayed = userEyed ? false : cur.userPrayed;
+        
+        const eyeDiff = userEyed ? 1 : -1;
+        const prayDiff = (userPrayed !== cur.userPrayed) ? (userPrayed ? 1 : -1) : 0;
+        
+        return {
+          ...prev,
+          [msgId]: {
+            pray: Math.max(0, cur.pray + prayDiff),
+            eye: Math.max(0, cur.eye + eyeDiff),
+            userPrayed,
+            userEyed,
+          },
+        };
       }
-      const userEyed = !cur.userEyed;
-      return { ...prev, [msgId]: { ...cur, userEyed, eye: cur.eye + (userEyed ? 1 : -1) } };
     });
   }, []);
 
@@ -361,7 +419,7 @@ export default function ChatScreen(): React.ReactElement {
             isPending={isPending}
             status={item.status}
             onLongPress={() => setReplyTo(item)}
-            reactions={reactions[item.id] ?? { pray: 0, eye: 0, userPrayed: false, userEyed: false }}
+            reactions={reactions[item.id] ?? DEFAULT_REACTION}
             onToggleReaction={(type) => toggleReaction(item.id, type)}
           />
         </SwipeableMessage>
@@ -401,7 +459,7 @@ export default function ChatScreen(): React.ReactElement {
           status={item.status}
           parentMessage={parentMessageInfo}
           onLongPress={() => setReplyTo(item)}
-          reactions={reactions[item.id] ?? { pray: 0, eye: 0, userPrayed: false, userEyed: false }}
+          reactions={reactions[item.id] ?? DEFAULT_REACTION}
           onToggleReaction={(type) => toggleReaction(item.id, type)}
         />
       </SwipeableMessage>
@@ -446,6 +504,7 @@ export default function ChatScreen(): React.ReactElement {
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"
             renderItem={renderItem}
+            onContentSizeChange={handleContentSizeChange}
             ListHeaderComponent={
               <View style={styles.sysDateWrap}>
                 <Text style={styles.sysDateText}>Сегодня</Text>
