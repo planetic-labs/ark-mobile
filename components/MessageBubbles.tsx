@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { COLORS, FONTS } from '../constants/Config';
 import { Image } from 'expo-image';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
@@ -161,6 +161,50 @@ const VideoNotePlayer = React.memo(function VideoNotePlayer({ fileUrl }: { fileU
   );
 });
 
+const handleUrlPress = async (url: string) => {
+  try {
+    let targetUrl = url;
+    if (url.toLowerCase().startsWith('www.')) {
+      targetUrl = `https://${url}`;
+    }
+    await Linking.openURL(targetUrl);
+  } catch (error) {
+    console.log('Failed to open URL', error);
+  }
+};
+
+const renderParsedText = (text: string, textStyle: any) => {
+  if (!text) return null;
+
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+  const parts = text.split(urlRegex);
+
+  if (parts.length === 1) {
+    return <Text style={textStyle}>{text}</Text>;
+  }
+
+  return (
+    <Text style={textStyle}>
+      {parts.map((part, index) => {
+        const isUrl = urlRegex.test(part);
+        urlRegex.lastIndex = 0;
+        if (isUrl) {
+          return (
+            <Text
+              key={index}
+              style={[textStyle, styles.linkText]}
+              onPress={() => handleUrlPress(part)}
+            >
+              {part}
+            </Text>
+          );
+        }
+        return part;
+      })}
+    </Text>
+  );
+};
+
 // Обычное сообщение (Воин или Ученик)
 export const MessageBubble = React.memo(function MessageBubble({
   content,
@@ -284,7 +328,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           <AudioPlayer fileUrl={fullFileUrl} duration={duration} />
         ) : null}
 
-        {content ? <Text style={styles.messageText}>{content}</Text> : null}
+        {content ? renderParsedText(content, styles.messageText) : null}
 
         <View style={styles.metaRow}>
           <Text style={styles.timeText}>{formattedTime}</Text>
@@ -377,7 +421,7 @@ export const ReportCard = React.memo(function ReportCard({
             {items.map((item, idx) => (
               <View key={idx} style={styles.reportItem}>
                 <Text style={styles.reportItemNum}>{item.num}</Text>
-                <Text style={styles.reportItemText}>{item.text}</Text>
+                {renderParsedText(item.text, styles.reportItemText)}
               </View>
             ))}
           </View>
@@ -452,7 +496,7 @@ export const CorrectionBubble = React.memo(function CorrectionBubble({
           style={[styles.bubble, styles.bubbleWarrior]}
         >
           <Text style={styles.authorNameWarrior}>{sender.name}</Text>
-          <Text style={styles.messageText}>{content}</Text>
+          {renderParsedText(content, styles.messageText)}
           <View style={styles.metaRow}>
             <Text style={styles.timeText}>{formattedTime}</Text>
             <Text style={styles.readText}>
@@ -819,5 +863,9 @@ const styles = StyleSheet.create({
   bubbleReactChipAddText: {
     fontSize: 10,
     color: COLORS.textMuted,
+  },
+  linkText: {
+    color: COLORS.amber,
+    textDecorationLine: 'underline',
   },
 });
